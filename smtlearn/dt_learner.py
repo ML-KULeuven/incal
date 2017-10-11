@@ -4,7 +4,12 @@ from gurobipy.gurobipy import *
 
 
 # noinspection PyPep8Naming
-class OCTLearner(object):
+from pysmt.shortcuts import LE, Plus, Real, Times, And, Or
+
+from learner import Learner
+
+
+class OCTLearner(Learner):
     def __init__(self, N_min, D, alpha):
         self.N_min = N_min
         self.D = D
@@ -17,7 +22,7 @@ class OCTLearner(object):
 
         print("Data")
         for row, l in data:
-            print(*(["{}: {:.2f}".format(v, OCTLearner._convert(row[v])) for v in domain.variables] + [l]))
+            print(*(["{}: {:.2f}".format(v, Learner._convert(row[v])) for v in domain.variables] + [l]))
         print()
 
         # Computed constants
@@ -59,7 +64,7 @@ class OCTLearner(object):
 
         print("A_L: {}, A_R: {}".format(A_L, A_R))
 
-        x_ij = [[OCTLearner._convert(row[v]) for v in domain.variables] for row, _ in data]
+        x_ij = [[Learner._convert(row[v]) for v in domain.variables] for row, _ in data]
         p_t = [None if i == 0 else int((i + 1) / 2) - 1 for i in range(inline_count)]
 
         # Variables
@@ -281,14 +286,22 @@ class OCTLearner(object):
 
         print('Obj:', m.objVal)
 
-    @staticmethod
-    def _get_misclassification(data):
-        true_count = 0
-        for _, l in data:
-            if l:
-                true_count += 1
-        return min(true_count, len(data) - true_count)
+        paths = []
 
-    @staticmethod
-    def _convert(value):
-        return float(value.constant_value())
+        def populate_paths(index, prefix=None):
+            if prefix is None:
+                prefix = []
+            left = (index + 1) * 2 - 1
+            right = (index + 1) * 2
+            if right < inline_count and d_t[index].x > 0.5:
+                coefficients = [Real(float(a_jt[j][index].x)) for j in range(p)]
+                linear_sum = Plus([Times(c, domain.get_symbol(v)) for c, v in zip(coefficients, domain.variables)])
+                constant = Real(float(b_t[index].x))
+                node = prefix + [LE(linear_sum, constant)]
+                populate_paths(left, node)
+                populate_paths(right, node)
+            else:
+                paths.append(prefix)
+        populate_paths(0)
+        return paths
+
