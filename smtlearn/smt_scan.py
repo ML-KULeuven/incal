@@ -282,7 +282,7 @@ def analyze(root_dir):
                 print(*[str(i) for i in information], sep="\t")
 
 
-def learn_formula(problem_id, domain, h, data, seed, subdir=None):
+def learn_formula(problem_id, domain, h, data, seed, subdir=None, learn_all=False):
     initial_size = 20
     violations_size = 10
     log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "demo", "results")
@@ -292,7 +292,10 @@ def learn_formula(problem_id, domain, h, data, seed, subdir=None):
         os.makedirs(log_dir)
 
     def learn_inc(_data, _k, _h):
-        initial_indices = random.sample(list(range(len(data))), initial_size)
+        if learn_all:
+            initial_indices = list(range(len(data)))
+        else:
+            initial_indices = random.sample(list(range(len(data))), initial_size)
         violations_strategy = RandomViolationsStrategy(violations_size)
         learner = KCnfSmtLearner(_k, _h, violations_strategy)
         log_file = os.path.join(log_dir, "{}_{}_{}_{}_{}.txt".format(problem_id, len(data), seed, _k, _h))
@@ -317,7 +320,7 @@ def learn_formula(problem_id, domain, h, data, seed, subdir=None):
         json.dump(flat, f)
 
 
-def learn(sample_count, subdir=None):
+def learn(sample_count, subdir=None, learn_all=False):
     flat = load()
     files = flat["files"]
     ratio_dict = flat["ratios"]
@@ -329,7 +332,8 @@ def learn(sample_count, subdir=None):
                 target_problem = problem.import_problem(json.load(f))
             adapted_problem = adapt_domain(target_problem, ratio_dict[name]["lb"], ratio_dict[name]["ub"])
             samples = generator.get_problem_samples(adapted_problem, sample_count, 1)
-            learn_formula(props["id"], adapted_problem.domain, len(props["half_spaces"]), samples, seed, subdir)
+            domain = adapted_problem.domain
+            learn_formula(props["id"], domain, len(props["half_spaces"]), samples, seed, subdir, learn_all)
             print(props["id"], name)
 
 
@@ -372,17 +376,21 @@ def ratios():
 if __name__ == "__main__":
     def parse_args():
         parser = argparse.ArgumentParser()
-        parser.add_argument("filename")
-        parser.add_argument("learning_samples", type=int)
-        parser.add_argument("subdir", nargs='?', default=None)
+        parser.add_argument("-f", "--filename", nargs='?', default=None, help="Specify the filename to load files from")
+        parser.add_argument("-l", "--learning_samples", type=int, help="Specify the number of samples for learning")
+        parser.add_argument("-s", "--subdir", nargs='?', default=None, help="Specify the results subdirectory")
+        parser.add_argument("-a", "--all", nargs='?', default=None, action="store_true",
+                            help="If set, learning will not use incremental mode")
         args = parser.parse_args()
 
-        full_dir = os.path.abspath(args.filename)
-        root_dir = os.path.dirname(full_dir)
+        if args.filename is not None:
+            full_dir = os.path.abspath(args.filename)
+            root_dir = os.path.dirname(full_dir)
 
-        # scan(full_dir, root_dir)
-        # analyze(root_dir)
-        # ratios()
-        learn(args.learning_samples, args.subdir)
+            scan(full_dir, root_dir)
+            analyze(root_dir)
+            ratios()
+        else:
+            learn(args.learning_samples, args.subdir, args.all)
 
     parse_args()
