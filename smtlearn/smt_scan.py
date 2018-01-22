@@ -291,7 +291,7 @@ def learn_formula(problem_id, domain, h, data, seed):
         initial_indices = random.sample(list(range(len(data))), initial_size)
         violations_strategy = RandomViolationsStrategy(violations_size)
         learner = KCnfSmtLearner(_k, _h, violations_strategy)
-        log_file = os.path.join(log_dir, "{}_{}_{}.txt".format(problem_id, _k, _h))
+        log_file = os.path.join(log_dir, "{}_{}_{}_{}_{}.txt".format(problem_id, len(data), seed, _k, _h))
         learner.add_observer(inc_logging.LoggingObserver(log_file, seed, True, violations_strategy))
         learned_theory = learner.learn(domain, data, initial_indices)
         # learned_theory = Or(*[And(*planes) for planes in hyperplane_dnf])
@@ -306,16 +306,17 @@ def learn_formula(problem_id, domain, h, data, seed):
     else:
         with open(overview, "r") as f:
             flat = json.load(f)
-    flat[problem_id] = {"k": k, "h": h}
+    if problem_id not in flat:
+        flat[problem_id] = {}
+    flat[problem_id][len(data)] = {"k": k, "h": h, "seed": seed}
     with open(overview, "w") as f:
         json.dump(flat, f)
 
 
-def learn():
+def learn(sample_count):
     flat = load()
     files = flat["files"]
     ratio_dict = flat["ratios"]
-    sample_count = 10000
     seed = time.time()
     for name, props in files.items():
         if props["loaded"] and props["var_count"] < 10 and not has_equals(props) and has_disjunctions(props) and \
@@ -363,10 +364,12 @@ def ratios():
 
     dump(flat)
 
+
 if __name__ == "__main__":
     def parse_args():
         parser = argparse.ArgumentParser()
         parser.add_argument("filename")
+        parser.add_argument("learning_samples", type=int)
         args = parser.parse_args()
 
         full_dir = os.path.abspath(args.filename)
@@ -374,7 +377,7 @@ if __name__ == "__main__":
 
         # scan(full_dir, root_dir)
         # analyze(root_dir)
-        ratios()
-        learn()
+        # ratios()
+        learn(args.learning_samples)
 
     parse_args()
