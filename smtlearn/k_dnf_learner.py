@@ -8,13 +8,14 @@ from learner import Learner
 
 
 class KDNFLearner(Learner):
-    def __init__(self, k, max_hyperplanes, alpha, min_covered=None, max_terms=None):
+    def __init__(self, k, max_hyperplanes, alpha, negated_hyperplanes=True, min_covered=None, max_terms=None):
         self.k = k
         self.max_hyperplanes = max_hyperplanes
         self.alpha = alpha
         self.min_covered = min_covered
         self.max_terms = max_terms
         self.mu = 0.0005
+        self.negated_hyperplanes = negated_hyperplanes
 
     def learn(self, domain, data):
         # Create a new model
@@ -27,7 +28,7 @@ class KDNFLearner(Learner):
 
         # Computed constants
         n_f = len(domain.variables)
-        n_h = self.max_hyperplanes
+        n_h = (2 * self.max_hyperplanes) if self.negated_hyperplanes else self.max_hyperplanes
         n_d = len(data)
         k = self.k
         naive_misclassification = float(Learner._get_misclassification(data))
@@ -61,9 +62,10 @@ class KDNFLearner(Learner):
 
         a = [
             [m.addVar(vtype=GRB.CONTINUOUS, lb=-1, ub=1, name="a({h}, {j})".format(h=h, j=j)) for j in range(n_f)]
-            for h in range(n_h)
+            for h in range(n_h / 2 if self.negated_hyperplanes else n_h)
         ]
-        b = [m.addVar(vtype=GRB.CONTINUOUS, lb=-1, ub=1, name="b({h})".format(h=h)) for h in range(n_h)]
+        b = [m.addVar(vtype=GRB.CONTINUOUS, lb=-1, ub=1, name="b({h})".format(h=h))
+             for h in range(n_h / 2 if self.negated_hyperplanes else n_h)]
         print()
 
         # Set objective
@@ -71,19 +73,27 @@ class KDNFLearner(Learner):
         m.setObjective(misclassification / naive_misclassification + self.alpha * sum(s_h), GRB.MINIMIZE)
 
         # Add constraint: SUM_(j = 1..n_h) a(h, j) * x(i, j) <= b(h) + M(1 - z_ih(i, h)) for all h, i
-        for h in range(n_h):
+        for h in range(n_h / 2 if self.negated_hyperplanes else n_h):
             for i in range(n_d):
                 name = "SUM_(j = 1..n_H) a({h}, j) * x({i}, j) <= b({h}) + M(1 - z_IH({i}, {h}))".format(h=h, i=i)
                 m.addConstr(sum(a[h][j] * x[i][j] for j in range(n_f)) <= b[h] + (n_f + 1) * (1 - z_ih[i][h]), name)
                 print(name)
         print()
 
-        for h in range(n_h):
+        for h in range(n_h / 2 if self.negated_hyperplanes else n_h):
             for i in range(n_d):
                 name = "SUM_(j = 1..n_H) a({h}, j) * x({i}, j) >= b({h}) - mu - M * z_IH({i}, {h})".format(h=h, i=i)
-                m.addConstr(sum(a[h][j] * x[i][j] for j in range(n_f)) >= b[h] + self.mu - (n_f + 1) * z_ih[i][h], name)
+                m.addConstr(sum(a[h][j] * x[i][j] for j in range(n_f)) >= b[h] - self.mu - (n_f + 1) * z_ih[i][h], name)
                 print(name)
         print()
+
+        if self.negated_hyperplanes:
+            for h in range(n_h / 2):
+                for i in range(n_d):
+                    name = "z_IH({i}, {h}) = 1 - z_IH({i}, {hi})".format(i=i, h=h, hi=(h + n_h / 2))
+                    m.addConstr(z_ih[i][n_h / 2 + h] == 1 - z_ih[i][h], name)
+                    print(name)
+            print()
 
         # If a hyperplane is assigned to any conjunction, it is selected (used)
         for h in range(n_h):
@@ -225,6 +235,14 @@ class KDNFLearner(Learner):
         # m.addConstr(z_ih[1][1] == 0)
         # m.addConstr(z_ih[2][1] == 0)
         # m.addConstr(z_ih[3][1] == 1)
+        # m.addConstr(z_ih[0][2] == 0)
+        # m.addConstr(z_ih[1][2] == 1)
+        # m.addConstr(z_ih[2][2] == 0)
+        # m.addConstr(z_ih[3][2] == 1)
+        # m.addConstr(z_ih[0][3] == 0)
+        # m.addConstr(z_ih[1][3] == 1)
+        # m.addConstr(z_ih[2][3] == 1)
+        # m.addConstr(z_ih[3][3] == 0)
 
         # m.addConstr(z_d[0][0] == 1)
         # m.addConstr(z_d[1][0] == 0)
@@ -276,9 +294,13 @@ class KDNFLearner(Learner):
             conjunction = []
             for h in range(n_h):
                 if int(z_h[h][conj].x) == 1:
-                    coefficients = [Real(float(a[h][j].x)) for j in range(n_f)]
+                    if h < n_h / 2 or not self.negated_hyperplanes:
+                        coefficients = [Real(float(a[h][j].x)) for j in range(n_f)]
+                        constant = Real(float(b[h].x))
+                    else:
+                        coefficients = [Real(-float(a[h - n_h / 2][j].x)) for j in range(n_f)]
+                        constant = Real(-float(b[h - n_h / 2].x))
                     linear_sum = Plus([Times(c, domain.get_symbol(v)) for c, v in zip(coefficients, domain.variables)])
-                    constant = Real(float(b[h].x))
                     conjunction.append(LE(linear_sum, constant))
             conjunctions.append(conjunction)
         return conjunctions

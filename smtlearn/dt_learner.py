@@ -161,6 +161,7 @@ class OCTLearner(Learner):
                     print(name)
         print()
 
+        # TODO, both times 1 - z_it??
         # Add constraint: Sum_j = 1..p a_jm^T * x_ji >= b_m - 2 * (1 - z_it) forall i in 1..n, t in T_B, m in A_R(t)
         for i in range(n):
             for t in range(leaf_count):
