@@ -282,10 +282,12 @@ def analyze(root_dir):
                 print(*[str(i) for i in information], sep="\t")
 
 
-def learn_formula(problem_id, domain, h, data, seed):
+def learn_formula(problem_id, domain, h, data, seed, subdir=None):
     initial_size = 20
     violations_size = 10
     log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "demo", "results")
+    if subdir is not None:
+        log_dir = os.path.join(log_dir, subdir)
 
     def learn_inc(_data, _k, _h):
         initial_indices = random.sample(list(range(len(data))), initial_size)
@@ -313,7 +315,7 @@ def learn_formula(problem_id, domain, h, data, seed):
         json.dump(flat, f)
 
 
-def learn(sample_count):
+def learn(sample_count, subdir=None):
     flat = load()
     files = flat["files"]
     ratio_dict = flat["ratios"]
@@ -325,7 +327,7 @@ def learn(sample_count):
                 target_problem = problem.import_problem(json.load(f))
             adapted_problem = adapt_domain(target_problem, ratio_dict[name]["lb"], ratio_dict[name]["ub"])
             samples = generator.get_problem_samples(adapted_problem, sample_count, 1)
-            learn_formula(props["id"], adapted_problem.domain, len(props["half_spaces"]), samples, seed)
+            learn_formula(props["id"], adapted_problem.domain, len(props["half_spaces"]), samples, seed, subdir)
             print(props["id"], name)
 
 
@@ -370,6 +372,7 @@ if __name__ == "__main__":
         parser = argparse.ArgumentParser()
         parser.add_argument("filename")
         parser.add_argument("learning_samples", type=int)
+        parser.add_argument("subdir", nargs='?', default=None)
         args = parser.parse_args()
 
         full_dir = os.path.abspath(args.filename)
@@ -378,6 +381,6 @@ if __name__ == "__main__":
         # scan(full_dir, root_dir)
         # analyze(root_dir)
         # ratios()
-        learn(args.learning_samples)
+        learn(args.learning_samples, args.subdir)
 
     parse_args()
