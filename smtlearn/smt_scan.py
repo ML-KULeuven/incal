@@ -288,6 +288,8 @@ def learn_formula(problem_id, domain, h, data, seed, subdir=None):
     log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "demo", "results")
     if subdir is not None:
         log_dir = os.path.join(log_dir, subdir)
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
 
     def learn_inc(_data, _k, _h):
         initial_indices = random.sample(list(range(len(data))), initial_size)
