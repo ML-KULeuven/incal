@@ -330,7 +330,7 @@ def learn(sample_count, subdir=None, learn_all=False, learn_dnf=False):
     ratio_dict = flat["ratios"]
     seed = hash(time.time())
     random.seed(seed)
-    print(sample_count, subdir, learn_all, learn_dnf)
+    print("PRINT", sample_count, subdir, learn_all, learn_dnf)
     for name, props in files.items():
         if props["loaded"] and props["var_count"] < 10 and not has_equals(props) and has_disjunctions(props) and \
                 ratio_dict[name]["finite"] and 0.1 <= ratio_dict[name]["ratio"] <= 0.9:
