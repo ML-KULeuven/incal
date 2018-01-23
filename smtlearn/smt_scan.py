@@ -298,7 +298,7 @@ def learn_formula(problem_id, domain, h, data, seed, subdir=None, learn_all=Fals
             initial_indices = random.sample(list(range(len(data))), initial_size)
         violations_strategy = RandomViolationsStrategy(violations_size)
         learner = KCnfSmtLearner(_k, _h, violations_strategy)
-        log_file = os.path.join(log_dir, "{}_{}_{}_{}_{}.txt".format(problem_id, len(data), seed, _k, _h))
+        log_file = os.path.join(log_dir, "{}_{}_{}_{}_{}.learning_log.txt".format(problem_id, len(data), seed, _k, _h))
         learner.add_observer(inc_logging.LoggingObserver(log_file, seed, True, violations_strategy))
         learned_theory = learner.learn(domain, data, initial_indices)
         # learned_theory = Or(*[And(*planes) for planes in hyperplane_dnf])
@@ -376,11 +376,12 @@ def ratios():
 if __name__ == "__main__":
     def parse_args():
         parser = argparse.ArgumentParser()
-        parser.add_argument("-f", "--filename", nargs='?', default=None, help="Specify the filename to load files from")
+        parser.add_argument("-f", "--filename", default=None, help="Specify the filename to load files from")
         parser.add_argument("-l", "--learning_samples", type=int, help="Specify the number of samples for learning")
-        parser.add_argument("-s", "--subdir", nargs='?', default=None, help="Specify the results subdirectory")
-        parser.add_argument("-a", "--all", nargs='?', default=None, action="store_true",
+        parser.add_argument("-s", "--subdir", default=None, help="Specify the results subdirectory")
+        parser.add_argument("-a", "--all", default=None, action="store_true",
                             help="If set, learning will not use incremental mode")
+        parser.add_argument("-dnf", default=None, action="store_true", help="If set, bias is DNF instead of CNF")
         args = parser.parse_args()
 
         if args.filename is not None:
