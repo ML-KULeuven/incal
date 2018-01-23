@@ -378,7 +378,7 @@ def ratios():
     dump(flat)
 
 
-def summarize(results_dir):
+def summarize(results_dir, output_type):
     results_file = os.path.join(results_dir, "problems.txt")
     with open(results_file, "r") as f:
         results_flat = json.load(f)
@@ -386,10 +386,22 @@ def summarize(results_dir):
     overview = load()
     lookup = overview["lookup"]
 
-    print("name", "sample_size", "total_duration", sep="\t")
+    simple_output = output_type is None
+
+    if simple_output:
+        print("name", "sample_size", "total_duration", sep="\t")
+
+    unique_names = set()
+    unique_sample_sizes = set()
+    duration_table = dict()
+    k_table = dict()
+    h_table = dict()
+
     for problem_id in results_flat:
         name = lookup[problem_id]
+        unique_names.add(name)
         for sample_size in results_flat[problem_id]:
+            unique_sample_sizes.add(sample_size)
             seed, k, h = (results_flat[problem_id][sample_size][v] for v in ["seed", "k", "h"])
             log_file = "{}_{}_{}_{}_{}.learning_log.txt".format(problem_id, sample_size, seed, k, h)
             log_file_full = os.path.join(results_dir, log_file)
@@ -399,7 +411,29 @@ def summarize(results_dir):
                     flat = json.loads(line)
                     if flat["type"] == "update":
                         durations.append(flat["selection_time"] + flat["solving_time"])
-            print(name, sample_size, sum(durations), sep="\t")
+            duration_table[(name, sample_size)] = sum(durations)
+            k_table[(name, sample_size)] = k
+            h_table[(name, sample_size)] = h
+            if simple_output:
+                print(name, sample_size, sum(durations), sep="\t")
+
+    names = list(sorted(unique_names))
+    sample_sizes = list(sorted(unique_sample_sizes, key=int))
+
+    if output_type in ["time", "k", "h"]:
+        print("", *sample_sizes, sep="\t")
+
+    if output_type == "time":
+        for name in names:
+            print(name, *[duration_table.get((name, sample_size), "") for sample_size in sample_sizes], sep="\t")
+
+    if output_type == "k":
+        for name in names:
+            print(name, *[k_table.get((name, sample_size), "") for sample_size in sample_sizes], sep="\t")
+
+    if output_type == "h":
+        for name in names:
+            print(name, *[k_table.get((name, sample_size), "") for sample_size in sample_sizes], sep="\t")
 
 
 if __name__ == "__main__":
@@ -412,6 +446,7 @@ if __name__ == "__main__":
                             help="If set, learning will not use incremental mode")
         parser.add_argument("-d", "--dnf", default=None, action="store_true", help="If set, bias is DNF instead of CNF")
         parser.add_argument("-r", "--results", default=None, help="Specify the results directory")
+        parser.add_argument("-t", "--table", default=None, help="Specify what type of table to print [time, k, h]")
         args = parser.parse_args()
 
         if args.filename is not None:
@@ -422,7 +457,7 @@ if __name__ == "__main__":
             analyze(root_dir)
             ratios()
         elif args.results is not None:
-            summarize(args.results)
+            summarize(args.results, args.table)
         else:
             learn(args.learning_samples, args.subdir, args.all, args.dnf)
 
