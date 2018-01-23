@@ -378,6 +378,29 @@ def ratios():
     dump(flat)
 
 
+def summarize(results_dir):
+    results_file = os.path.join(results_dir, "problems.txt")
+    with open(results_file, "r") as f:
+        results_flat = json.load(f)
+
+    overview = load()
+    lookup = overview["lookup"]
+
+    for problem_id in results_flat:
+        name = lookup[problem_id]
+        for sample_size in results_flat[problem_id]:
+            seed, k, h = (results_flat[problem_id][sample_size][v] for v in ["seed", "k", "h"])
+            log_file = "{}_{}_{}_{}_{}.learning_log.txt".format(problem_id, sample_size, seed, k, h)
+            log_file_full = os.path.join(results_dir, log_file)
+            durations = []
+            with open(log_file_full, "r") as f:
+                for line in f:
+                    flat = json.loads(line)
+                    if flat["type"] == "update":
+                        durations.append(flat["selection_time"] + flat["solving_time"])
+            print(name, sample_size, sum(durations))
+
+
 if __name__ == "__main__":
     def parse_args():
         parser = argparse.ArgumentParser()
@@ -387,6 +410,7 @@ if __name__ == "__main__":
         parser.add_argument("-a", "--all", default=None, action="store_true",
                             help="If set, learning will not use incremental mode")
         parser.add_argument("-d", "--dnf", default=None, action="store_true", help="If set, bias is DNF instead of CNF")
+        parser.add_argument("-r", "--results", default=None, help="Specify the results directory")
         args = parser.parse_args()
 
         if args.filename is not None:
@@ -396,6 +420,8 @@ if __name__ == "__main__":
             scan(full_dir, root_dir)
             analyze(root_dir)
             ratios()
+        elif args.results is not None:
+            summarize(args.results)
         else:
             learn(args.learning_samples, args.subdir, args.all, args.dnf)
 
