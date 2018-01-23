@@ -386,6 +386,7 @@ def summarize(results_dir):
     overview = load()
     lookup = overview["lookup"]
 
+    print("name", "sample_size", "total_duration")
     for problem_id in results_flat:
         name = lookup[problem_id]
         for sample_size in results_flat[problem_id]:
@@ -398,7 +399,7 @@ def summarize(results_dir):
                     flat = json.loads(line)
                     if flat["type"] == "update":
                         durations.append(flat["selection_time"] + flat["solving_time"])
-            print(name, sample_size, sum(durations))
+            print(name, sample_size, sum(durations), sep="\t")
 
 
 if __name__ == "__main__":
