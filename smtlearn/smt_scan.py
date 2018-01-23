@@ -328,7 +328,7 @@ def learn(sample_count, subdir=None, learn_all=False, learn_dnf=False):
     flat = load()
     files = flat["files"]
     ratio_dict = flat["ratios"]
-    seed = time.time()
+    seed = hash(time.time())
     random.seed(seed)
     for name, props in files.items():
         if props["loaded"] and props["var_count"] < 10 and not has_equals(props) and has_disjunctions(props) and \
