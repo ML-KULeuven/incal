@@ -293,12 +293,12 @@ def learn_formula(problem_id, domain, h, data, seed, subdir=None, learn_all=Fals
         os.makedirs(log_dir)
 
     def learn_inc(_data, _k, _h):
-        if learn_all:
+        if learn_all is not None and learn_all:
             initial_indices = list(range(len(data)))
         else:
             initial_indices = random.sample(list(range(len(data))), initial_size)
         violations_strategy = RandomViolationsStrategy(violations_size)
-        if learn_dnf:
+        if learn_dnf is not None and learn_dnf:
             learner = KDnfSmtLearner(_k, _h, violations_strategy)
         else:
             learner = KCnfSmtLearner(_k, _h, violations_strategy)
