@@ -38,7 +38,7 @@ def combine(output_dir, dirs):
                                        .format(sample_size, problem_id, input_summary))
 
     for input_dir in dirs:
-        for input_file in os.listdir('.'):
+        for input_file in os.listdir(input_dir):
             if fnmatch.fnmatch(input_file, '*.learning_log.txt'):
                 old_file = os.path.join(input_dir, input_file)
                 new_file = os.path.join(output_dir, input_file)
