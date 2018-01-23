@@ -1,16 +1,21 @@
-from __future__ import print_function
+from __future__ import print_function, division
 
 import json
 import random
 
 import os
+
+import itertools
 import pysmt.shortcuts as smt
 import time
 
+import plotting
 import problem
 import parse
+from smt_print import pretty_print
 from learner import Learner
 from smt_check import SmtChecker
+from smt_check import test as smt_test
 
 
 class InsufficientBalanceError(RuntimeError):
@@ -269,9 +274,97 @@ def get_problem_samples(test_problem, sample_count, max_ratio):
 
         # Definite check
         if pos_count + remaining < minimal_count or neg_count + remaining < minimal_count:
-            print("Definite test")
+            # print("Definite test")
             raise InsufficientBalanceError()
     return samples
+
+
+def get_synthetic_problem_name(prefix, bool_count, real_count, cnf_or_dnf, k, l_per_term, h, sample_count, seed,
+                               i=None):
+    name = "{prefix}_{bc}_{rc}_{type}_{fc}_{tpf}_{hc}_{sc}_{seed}" \
+        .format(bc=bool_count, rc=real_count, type=cnf_or_dnf, fc=k, tpf=l_per_term, hc=h, sc=sample_count,
+                prefix=prefix, seed=seed)
+    if i is not None:
+        name = name + "_" + str(i)
+    return name
+
+
+def generate_synthetic_data_sampling(data_sets_per_setting, bool_count, real_count, cnf_or_dnf, k, l_per_term, h,
+                                     sample_count, max_ratio, seed, prefix="synthetics"):
+
+    def test_ratio(_indices):
+        return (1 - max_ratio) * sample_count <= len(_indices) <= max_ratio * sample_count
+
+    data_sets = []
+    domain = generate_domain(bool_count, real_count)
+    while len(data_sets) < data_sets_per_setting:
+        name = get_synthetic_problem_name(prefix, bool_count, real_count, cnf_or_dnf, k, l_per_term, h, sample_count,
+                                          seed, len(data_sets))
+        samples = [get_sample(domain) for _ in range(sample_count)]
+
+        half_spaces = []
+        print("Generating half spaces: ", end="")
+        while len(half_spaces) < h:
+            half_space = generate_half_space_sample(domain, real_count)
+            indices = {i for i in range(sample_count) if smt_test(half_space, samples[i])}
+            if test_ratio(indices):
+                half_spaces.append((half_space, indices))
+                print("y", end="")
+            else:
+                print("x", end="")
+        print()
+
+        bool_literals = [(domain.get_symbol(v), {i for i in range(sample_count) if samples[i][v]})
+                         for v in domain.bool_vars]
+
+        literal_pool = half_spaces + bool_literals
+        literal_pool += [(smt.Not(l), {i for i in range(sample_count)} - indices) for l, indices in literal_pool]
+
+        term_pool = []
+        print("Generating terms: ", end="")
+        for literals in itertools.combinations(literal_pool, l_per_term):
+            term = smt.Or(*[t[0] for t in literals])
+            covered = set()
+            all_matter = True
+            for _, indices in literals:
+                prev_size = len(covered)
+                covered |= indices
+                if (len(covered) - prev_size) / sample_count < 0.05:
+                    all_matter = False
+
+            if all_matter: # & test_ratio(covered):
+                term_pool.append((term, covered))
+                print("y", end="")
+            else:
+                print("x", end="")
+        print()
+
+        print("Generating formulas: ", end="")
+        for terms in itertools.combinations(term_pool, k):
+            formula = smt.And(*[t[0] for t in terms])
+            covered = {i for i in range(sample_count)}
+            all_matter = True
+            for _, indices in terms:
+                prev_size = len(covered)
+                covered &= indices
+                if prev_size == len(covered):
+                    all_matter = False
+            if all_matter & test_ratio(covered):
+                print("y({:.2f})".format(len(covered) / sample_count), end="")
+                synthetic_problem = SyntheticProblem(problem.Problem(domain, formula, name), "cnf", k, l_per_term, h)
+                data_set = synthetic_problem.get_data(sample_count, 1)
+                new_sample_positives = [sample for sample in data_set.samples if sample[1]]
+                if test_ratio(new_sample_positives):
+                    data_sets.append(data_set)
+                    print("c({:.2f})".format(len(new_sample_positives) / sample_count), end="")
+                    break
+                else:
+                    print("r({:.2f})".format(len(new_sample_positives) / sample_count), end="")
+            else:
+                print("x", end="")
+            print(" ", end="")
+        print()
+    return data_sets
 
 
 def generate_synthetic_data(data_sets_per_setting, bool_count, real_count, cnf_or_dnf, formula_count, terms_per_formula,
@@ -299,13 +392,47 @@ def import_synthetic_data_files(directory, prefix):
 
 
 def test():
-    random.seed(666)
-    prefix = "synthetic"
-    for data_set in generate_synthetic_data(10, 0, 2, "cnf_strict", 3, 4, 7, 1000, 0.8, prefix):
-        print(data_set.synthetic_problem.theory_problem.name)
-        file_name = "../data/{}.txt".format(data_set.synthetic_problem.theory_problem.name)
-        with open(file_name, "w") as f:
+    seed = hash(time.time())
+    random.seed(seed)
+
+    data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
+    output_base_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "output")
+    b_count = 0
+    r_count = 2
+    prefix = "synthetics"
+    cnf_or_dnf = "cnf"
+    k = 3
+    l_per_term = 4
+    h = 7
+    sample_count = 1000
+    i = 0
+    for data_set in generate_synthetic_data_sampling(10, b_count, r_count, cnf_or_dnf, k, l_per_term, h, sample_count,
+                                                     0.85, seed, prefix):
+        data_file = os.path.join(data_dir, "{}.txt".format(data_set.synthetic_problem.theory_problem.name))
+        with open(data_file, "w") as f:
             print(export_synthetic_data(data_set), file=f)
+
+        if b_count == 0 and r_count == 2:
+            dir_name = get_synthetic_problem_name(prefix, b_count, r_count, cnf_or_dnf, k, l_per_term, h, sample_count,
+                                                  seed)
+            output_dir = os.path.join(output_base_dir, dir_name)
+            domain = data_set.synthetic_problem.theory_problem.domain
+            if not os.path.exists(output_dir):
+                os.makedirs(output_dir)
+            indices = list(range(len(data_set.samples)))
+            name = os.path.join(output_dir, "overview_{}.txt".format(i))
+            plotting.draw_border_points(domain.real_vars[0], domain.real_vars[1], data_set.samples, indices, name)
+
+        i += 1
+
+
+
+# prefix = "synthetic"
+    # for data_set in generate_synthetic_data(10, 0, 2, "cnf_strict", 3, 4, 7, 1000, 0.8, prefix):
+    #     print(data_set.synthetic_problem.theory_problem.name)
+    #     file_name = "../data/{}.txt".format(data_set.synthetic_problem.theory_problem.name)
+    #     with open(file_name, "w") as f:
+    #         print(export_synthetic_data(data_set), file=f)
 
     # imported = list(import_synthetic_data_files("../data", prefix))
     # print(imported[0].synthetic_problem.theory_problem.name)

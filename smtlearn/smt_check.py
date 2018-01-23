@@ -58,7 +58,11 @@ class SmtChecker(SmtWalker):
         raise RuntimeError("Zero argument multiplication")
 
     def walk_not(self, argument):
-        return ~self.walk_smt(argument)
+        return not self.walk_smt(argument)
 
     def check(self, formula):
         return self.walk_smt(formula)
+
+
+def test(formula, assignment):
+    return SmtChecker(assignment).walk_smt(formula)
