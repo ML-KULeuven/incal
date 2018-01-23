@@ -386,7 +386,7 @@ def summarize(results_dir):
     overview = load()
     lookup = overview["lookup"]
 
-    print("name", "sample_size", "total_duration")
+    print("name", "sample_size", "total_duration", sep="\t")
     for problem_id in results_flat:
         name = lookup[problem_id]
         for sample_size in results_flat[problem_id]:
