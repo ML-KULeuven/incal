@@ -19,6 +19,7 @@ import parse
 import problem
 from incremental_learner import RandomViolationsStrategy
 from k_cnf_smt_learner import KCnfSmtLearner
+from k_dnf_smt_learner import KDnfSmtLearner
 from parameter_free_learner import learn_bottom_up
 from smt_walk import SmtWalker
 
@@ -282,7 +283,7 @@ def analyze(root_dir):
                 print(*[str(i) for i in information], sep="\t")
 
 
-def learn_formula(problem_id, domain, h, data, seed, subdir=None, learn_all=False):
+def learn_formula(problem_id, domain, h, data, seed, subdir=None, learn_all=False, learn_dnf=False):
     initial_size = 20
     violations_size = 10
     log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "demo", "results")
@@ -297,7 +298,10 @@ def learn_formula(problem_id, domain, h, data, seed, subdir=None, learn_all=Fals
         else:
             initial_indices = random.sample(list(range(len(data))), initial_size)
         violations_strategy = RandomViolationsStrategy(violations_size)
-        learner = KCnfSmtLearner(_k, _h, violations_strategy)
+        if learn_dnf:
+            learner = KDnfSmtLearner(_k, _h, violations_strategy)
+        else:
+            learner = KCnfSmtLearner(_k, _h, violations_strategy)
         log_file = os.path.join(log_dir, "{}_{}_{}_{}_{}.learning_log.txt".format(problem_id, len(data), seed, _k, _h))
         learner.add_observer(inc_logging.LoggingObserver(log_file, seed, True, violations_strategy))
         learned_theory = learner.learn(domain, data, initial_indices)
@@ -320,11 +324,12 @@ def learn_formula(problem_id, domain, h, data, seed, subdir=None, learn_all=Fals
         json.dump(flat, f)
 
 
-def learn(sample_count, subdir=None, learn_all=False):
+def learn(sample_count, subdir=None, learn_all=False, learn_dnf=False):
     flat = load()
     files = flat["files"]
     ratio_dict = flat["ratios"]
     seed = time.time()
+    random.seed(seed)
     for name, props in files.items():
         if props["loaded"] and props["var_count"] < 10 and not has_equals(props) and has_disjunctions(props) and \
                 ratio_dict[name]["finite"] and 0.1 <= ratio_dict[name]["ratio"] <= 0.9:
@@ -333,7 +338,7 @@ def learn(sample_count, subdir=None, learn_all=False):
             adapted_problem = adapt_domain(target_problem, ratio_dict[name]["lb"], ratio_dict[name]["ub"])
             samples = generator.get_problem_samples(adapted_problem, sample_count, 1)
             domain = adapted_problem.domain
-            learn_formula(props["id"], domain, len(props["half_spaces"]), samples, seed, subdir, learn_all)
+            learn_formula(props["id"], domain, len(props["half_spaces"]), samples, seed, subdir, learn_all, learn_dnf)
             print(props["id"], name)
 
 
@@ -381,7 +386,7 @@ if __name__ == "__main__":
         parser.add_argument("-s", "--subdir", default=None, help="Specify the results subdirectory")
         parser.add_argument("-a", "--all", default=None, action="store_true",
                             help="If set, learning will not use incremental mode")
-        parser.add_argument("-dnf", default=None, action="store_true", help="If set, bias is DNF instead of CNF")
+        parser.add_argument("-d", "--dnf", default=None, action="store_true", help="If set, bias is DNF instead of CNF")
         args = parser.parse_args()
 
         if args.filename is not None:
@@ -392,6 +397,6 @@ if __name__ == "__main__":
             analyze(root_dir)
             ratios()
         else:
-            learn(args.learning_samples, args.subdir, args.all)
+            learn(args.learning_samples, args.subdir, args.all, args.dnf)
 
     parse_args()
