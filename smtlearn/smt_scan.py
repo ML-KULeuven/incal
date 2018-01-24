@@ -415,7 +415,7 @@ def summarize(results_dir, output_type):
     h_table = dict()
 
     for problem_id in results_flat:
-        name = lookup[problem_id]
+        name = lookup.get(problem_id, problem_id)
         unique_names.add(name)
         for sample_size in results_flat[problem_id]:
             unique_sample_sizes.add(sample_size)
