@@ -3,7 +3,6 @@ from __future__ import print_function
 import pysmt.shortcuts as smt
 from pysmt.typing import REAL
 
-from learner import Learner
 from incremental_learner import IncrementalLearner
 
 
@@ -63,38 +62,6 @@ class KCnfSmtLearner(IncrementalLearner):
                 solver.add_assertion(smt.And([s_ic[i][c] for c in range(n_c)]))
             else:
                 solver.add_assertion(smt.Or([~s_ic[i][c] for c in range(n_c)]))
-
-            # theory = ((x <= 0.5) | (y > 0.5)) & ((x > 0.5) | (y <= 0.5))
-            # solver.add_assertion(smt.Equals(a_hr[0][0], smt.Real(1)))
-            # solver.add_assertion(smt.Equals(a_hr[0][1], smt.Real(0)))
-            # solver.add_assertion(smt.Equals(b_h[0], smt.Real(0.5)))
-
-            # solver.add_assertion(smt.Equals(a_hr[1][0], smt.Real(0)))
-            # solver.add_assertion(smt.Equals(a_hr[1][1], smt.Real(1)))
-            # solver.add_assertion(smt.Equals(b_h[1], smt.Real(0.5)))
-
-            # solver.add_assertion(s_ch[0][0])
-            # solver.add_assertion(~s_ch[0][2])
-            # solver.add_assertion(~s_ch[0][1])
-            # solver.add_assertion(s_ch[0][3])
-            # solver.add_assertion(~s_ch[1][0])
-            # solver.add_assertion(s_ch[1][2])
-            # solver.add_assertion(s_ch[1][1])
-            # solver.add_assertion(~s_ch[1][3])
-
-            # solver.add_assertion(~s_ih[344][0])
-            # solver.add_assertion(~s_ih[344][1])
-            # solver.add_assertion(s_ih[344][2])
-            # solver.add_assertion(s_ih[344][3])
-            # solver.add_assertion(s_ic[344][0])
-            # solver.add_assertion(s_ic[344][1])
-
-            # solver.add_assertion(s_ih[99][0])
-            # solver.add_assertion(~s_ih[99][1])
-            # solver.add_assertion(~s_ih[99][2])
-            # solver.add_assertion(s_ih[99][3])
-            # solver.add_assertion(s_ic[99][0])
-            # solver.add_assertion(~s_ic[99][1])
 
         solver.solve()
         model = solver.get_model()
