@@ -429,10 +429,10 @@ if __name__ == "__main__":
     parser.add_argument("--real_count", default=2)
     parser.add_argument("--bias", default="cnf")
     parser.add_argument("--k", default=3)
-    parser.add_argument("--l_per_term", default=4)
+    parser.add_argument("--literals", default=4)
     parser.add_argument("--h", default=7)
     parser.add_argument("--sample_count", default=1000)
     parser.add_argument("--ratio", default=90)
     parsed = parser.parse_args()
-    generate(parsed.data_sets, parsed.prefix, parsed.bool_count, parsed.real_count, parsed.cnf_or_dnf, parsed.k,
-             parsed.l_per_term, parsed.h, parsed.sample_count, parsed.ratio_percent)
+    generate(parsed.data_sets, parsed.prefix, parsed.bool_count, parsed.real_count, parsed.bias, parsed.k,
+             parsed.literals, parsed.h, parsed.sample_count, parsed.ratio_percent)
