@@ -450,7 +450,7 @@ def summarize(results_dir, output_type):
 
     if output_type == "h":
         for name in names:
-            print(name, *[k_table.get((name, sample_size), "") for sample_size in sample_sizes], sep="\t")
+            print(name, *[h_table.get((name, sample_size), "") for sample_size in sample_sizes], sep="\t")
 
 
 if __name__ == "__main__":
