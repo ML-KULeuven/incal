@@ -19,6 +19,7 @@ from problem import Domain, Problem
 from smt_check import SmtChecker
 
 import parse
+from smt_print import pretty_print
 
 mpl.use('TkAgg')
 import matplotlib.pyplot as plt
@@ -297,7 +298,7 @@ def draw_border_points(feat_x, feat_y, data, border_indices, name):
 
 def learn_parameter_free(problem, data, seed):
     def learn_inc(_data, _k, _h):
-        learner = KCnfSmtLearner(_k, _h, RandomViolationsStrategy(20))
+        learner = KDnfSmtLearner(_k, _h, RandomViolationsStrategy(10))
         dir_name = "../output/{}".format(problem.name)
         img_name = "{}_{}_{}_{}_{}".format(learner.name, _k, _h, len(data), seed)
         learner.add_observer(plotting.PlottingObserver(data, dir_name, img_name, "x", "y"))
@@ -306,7 +307,7 @@ def learn_parameter_free(problem, data, seed):
 
         learned_theory = learner.learn(problem.domain, data, initial_indices)
         # learned_theory = Or(*[And(*planes) for planes in hyperplane_dnf])
-        print("Learned theory:\n{}".format(parse.smt_to_nested(learned_theory)))
+        print("Learned theory:\n{}".format(pretty_print(learned_theory)))
         return learned_theory
 
     learn_bottom_up(data, learn_inc, 1, 1)
@@ -317,10 +318,10 @@ def main():
     seed = 65
     random.seed(65)
     # problem = simple_univariate_problem()
-    # problem = simple_checker_problem()
+    problem = simple_checker_problem()
     # problem = simple_checker_problem_cnf()
     # problem = shared_hyperplane_problem()
-    problem = checker_problem()
+    # problem = checker_problem()
     # problem = cross_problem()
     # problem = bool_xor_problem()
     # data = [

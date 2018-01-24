@@ -8,7 +8,7 @@ from incremental_learner import IncrementalLearner
 
 class KDnfSmtLearner(IncrementalLearner):
     def __init__(self, conjunction_count, half_space_count, selection_strategy, allow_negations=True):
-        IncrementalLearner.__init__(self, "cnf_smt", selection_strategy)
+        IncrementalLearner.__init__(self, "dnf_smt", selection_strategy)
         self.conjunction_count = conjunction_count
         self.half_space_count = half_space_count
         self.allow_negations = allow_negations
@@ -53,9 +53,9 @@ class KDnfSmtLearner(IncrementalLearner):
             for c in range(n_c):
                 solver.add_assertion(smt.Iff(s_ic[i][c], smt.And(
                     [smt.TRUE()]
-                    + [(s_ch[c][h] & s_ih[i][h]) for h in range(n_h)]
-                    + [s_cb[c][b] for b in range(n_b_original) if x_b[b]]
-                    + [s_cb[c][b] for b in range(n_b_original, n_b) if not x_b[b - n_b_original]]
+                    + [(~s_ch[c][h] | s_ih[i][h]) for h in range(n_h)]
+                    + [~s_cb[c][b] for b in range(n_b_original) if not x_b[b]]
+                    + [~s_cb[c][b] for b in range(n_b_original, n_b) if x_b[b - n_b_original]]
                 )))
 
             if label:
