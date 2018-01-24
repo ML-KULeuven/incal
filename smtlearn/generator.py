@@ -1,5 +1,6 @@
 from __future__ import print_function, division
 
+import argparse
 import json
 import random
 
@@ -188,14 +189,16 @@ def get_formulas(domain, formula_count, terms_per_formula, half_space_count):
 
 
 def generate_half_space(domain, real_count):
-    coefficients = [smt.Real(random.random() * 2 - 1) * domain.get_symbol(domain.real_vars[i]) for i in range(real_count)]
+    coefficients = [smt.Real(random.random() * 2 - 1) * domain.get_symbol(domain.real_vars[i]) for i in
+                    range(real_count)]
     return smt.LE(smt.Plus(*coefficients), smt.Real(random.random() * 2 - 1))
 
 
 def generate_half_space_sample(domain, real_count):
     samples = [get_sample(domain) for _ in range(real_count)]
     coefficients, offset = Learner.fit_hyperplane(domain, samples)
-    coefficients = [smt.Real(float(coefficients[i][0])) * domain.get_symbol(domain.real_vars[i]) for i in range(real_count)]
+    coefficients = [smt.Real(float(coefficients[i][0])) * domain.get_symbol(domain.real_vars[i]) for i in
+                    range(real_count)]
     if random.random() < 0.5:
         return smt.Plus(*coefficients) <= offset
     else:
@@ -279,10 +282,10 @@ def get_problem_samples(test_problem, sample_count, max_ratio):
 
 
 def get_synthetic_problem_name(prefix, bool_count, real_count, cnf_or_dnf, k, l_per_term, h, sample_count, seed,
-                               i=None):
-    name = "{prefix}_{bc}_{rc}_{type}_{fc}_{tpf}_{hc}_{sc}_{seed}" \
+                               ratio_percent, i=None):
+    name = "{prefix}_{bc}_{rc}_{type}_{fc}_{tpf}_{hc}_{sc}_{seed}_{ratio}" \
         .format(bc=bool_count, rc=real_count, type=cnf_or_dnf, fc=k, tpf=l_per_term, hc=h, sc=sample_count,
-                prefix=prefix, seed=seed)
+                prefix=prefix, seed=seed, ratio=int(ratio_percent))
     if i is not None:
         name = name + "_" + str(i)
     return name
@@ -290,7 +293,6 @@ def get_synthetic_problem_name(prefix, bool_count, real_count, cnf_or_dnf, k, l_
 
 def generate_synthetic_data_sampling(data_sets_per_setting, bool_count, real_count, cnf_or_dnf, k, l_per_term, h,
                                      sample_count, max_ratio, seed, prefix="synthetics"):
-
     def test_ratio(_indices):
         return (1 - max_ratio) * sample_count <= len(_indices) <= max_ratio * sample_count
 
@@ -298,7 +300,7 @@ def generate_synthetic_data_sampling(data_sets_per_setting, bool_count, real_cou
     domain = generate_domain(bool_count, real_count)
     while len(data_sets) < data_sets_per_setting:
         name = get_synthetic_problem_name(prefix, bool_count, real_count, cnf_or_dnf, k, l_per_term, h, sample_count,
-                                          seed, len(data_sets))
+                                          seed, max_ratio * 100, len(data_sets))
         samples = [get_sample(domain) for _ in range(sample_count)]
 
         half_spaces = []
@@ -306,7 +308,7 @@ def generate_synthetic_data_sampling(data_sets_per_setting, bool_count, real_cou
         while len(half_spaces) < h:
             half_space = generate_half_space_sample(domain, real_count)
             indices = {i for i in range(sample_count) if smt_test(half_space, samples[i])}
-            if test_ratio(indices):
+            if True or test_ratio(indices):
                 half_spaces.append((half_space, indices))
                 print("y", end="")
             else:
@@ -331,7 +333,7 @@ def generate_synthetic_data_sampling(data_sets_per_setting, bool_count, real_cou
                 if (len(covered) - prev_size) / sample_count < 0.05:
                     all_matter = False
 
-            if all_matter: # & test_ratio(covered):
+            if all_matter:  # & test_ratio(covered):
                 term_pool.append((term, covered))
                 print("y", end="")
             else:
@@ -372,7 +374,7 @@ def generate_synthetic_data(data_sets_per_setting, bool_count, real_count, cnf_o
     domain = generate_domain(bool_count, real_count)
     while data_set_count < data_sets_per_setting:
         try:
-            name = "{prefix}_{bc}_{rc}_{type}_{fc}_{tpf}_{hc}_{sc}_{i}"\
+            name = "{prefix}_{bc}_{rc}_{type}_{fc}_{tpf}_{hc}_{sc}_{i}" \
                 .format(bc=bool_count, rc=real_count, type=cnf_or_dnf, fc=formula_count, tpf=terms_per_formula,
                         hc=half_space_count, sc=sample_count, i=data_set_count, prefix=prefix)
             data = SyntheticProblem.create(domain, cnf_or_dnf, formula_count, terms_per_formula, half_space_count,
@@ -390,53 +392,47 @@ def import_synthetic_data_files(directory, prefix):
                 yield import_synthetic_data(json.load(f))
 
 
-def test():
+def generate(data_sets, prefix, b_count, r_count, cnf_or_dnf, k, l_per_term, h, sample_count, ratio_percent):
     seed = hash(time.time())
     random.seed(seed)
 
     data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
     output_base_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "output")
-    b_count = 0
-    r_count = 2
-    prefix = "synthetics"
-    cnf_or_dnf = "cnf"
-    k = 3
-    l_per_term = 4
-    h = 7
-    sample_count = 1000
     i = 0
     import plotting
-    for data_set in generate_synthetic_data_sampling(10, b_count, r_count, cnf_or_dnf, k, l_per_term, h, sample_count,
-                                                     0.85, seed, prefix):
+    for data_set in generate_synthetic_data_sampling(data_sets, b_count, r_count, cnf_or_dnf, k, l_per_term, h,
+                                                     sample_count,
+                                                     ratio_percent / 100, seed, prefix):
         data_file = os.path.join(data_dir, "{}.txt".format(data_set.synthetic_problem.theory_problem.name))
         with open(data_file, "w") as f:
             print(export_synthetic_data(data_set), file=f)
 
         if b_count == 0 and r_count == 2:
             dir_name = get_synthetic_problem_name(prefix, b_count, r_count, cnf_or_dnf, k, l_per_term, h, sample_count,
-                                                  seed)
+                                                  seed, ratio_percent)
             output_dir = os.path.join(output_base_dir, dir_name)
             domain = data_set.synthetic_problem.theory_problem.domain
             if not os.path.exists(output_dir):
                 os.makedirs(output_dir)
             indices = list(range(len(data_set.samples)))
-            name = os.path.join(output_dir, "overview_{}.txt".format(i))
+            name = os.path.join(output_dir, "overview_{}".format(i))
             plotting.draw_border_points(domain.real_vars[0], domain.real_vars[1], data_set.samples, indices, name)
 
         i += 1
 
 
-
-# prefix = "synthetic"
-    # for data_set in generate_synthetic_data(10, 0, 2, "cnf_strict", 3, 4, 7, 1000, 0.8, prefix):
-    #     print(data_set.synthetic_problem.theory_problem.name)
-    #     file_name = "../data/{}.txt".format(data_set.synthetic_problem.theory_problem.name)
-    #     with open(file_name, "w") as f:
-    #         print(export_synthetic_data(data_set), file=f)
-
-    # imported = list(import_synthetic_data_files("../data", prefix))
-    # print(imported[0].synthetic_problem.theory_problem.name)
-
-
 if __name__ == "__main__":
-    test()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--data_sets", default=10)
+    parser.add_argument("--prefix", default="synthetics")
+    parser.add_argument("--bool_count", default=2)
+    parser.add_argument("--real_count", default=2)
+    parser.add_argument("--bias", default="cnf")
+    parser.add_argument("--k", default=3)
+    parser.add_argument("--l_per_term", default=4)
+    parser.add_argument("--h", default=7)
+    parser.add_argument("--sample_count", default=1000)
+    parser.add_argument("--ratio", default=90)
+    parsed = parser.parse_args()
+    generate(parsed.data_sets, parsed.prefix, parsed.bool_count, parsed.real_count, parsed.cnf_or_dnf, parsed.k,
+             parsed.l_per_term, parsed.h, parsed.sample_count, parsed.ratio_percent)
