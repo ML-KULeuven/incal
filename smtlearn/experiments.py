@@ -59,7 +59,7 @@ def learn_synthetic(input_dir, prefix, results_dir, bias):
                 exp_id = "{}_{}_{}".format(learner.name, sample_count, seed)
                 learner.add_observer(plotting.PlottingObserver(data_set.samples, plots_dir, exp_id, *feats))
             log_file = "{}_{}_{}_{}_{}.learning_log.txt".format(name, sample_count, seed, k, h)
-            learner.add_observer(LoggingObserver(log_file, seed, True, selection_strategy))
+            learner.add_observer(LoggingObserver(os.path.join(results_dir, log_file), seed, True, selection_strategy))
         else:
             raise RuntimeError("Unknown bias {}".format(bias))
 
