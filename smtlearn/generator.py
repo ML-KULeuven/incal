@@ -435,4 +435,4 @@ if __name__ == "__main__":
     parser.add_argument("--ratio", default=90)
     parsed = parser.parse_args()
     generate(parsed.data_sets, parsed.prefix, parsed.bool_count, parsed.real_count, parsed.bias, parsed.k,
-             parsed.literals, parsed.h, parsed.sample_count, parsed.ratio_percent)
+             parsed.literals, parsed.h, parsed.sample_count, parsed.ratio)
