@@ -344,7 +344,12 @@ def generate_synthetic_data_sampling(data_sets_per_setting, bool_count, real_cou
 
         print("Generating formulas: ", end="")
         random.shuffle(term_pool)
+        counter = 0
+        max_tries = 1000
         for terms in itertools.combinations(term_pool, k):
+            if counter >= max_tries:
+                print("Restart")
+                break
             formula = smt.And(*[t[0] for t in terms])
             covered = {i for i in range(sample_count)}
             all_matter = True
@@ -367,6 +372,7 @@ def generate_synthetic_data_sampling(data_sets_per_setting, bool_count, real_cou
             else:
                 print("x", end="")
             print(" ", end="")
+            counter += 1
         print()
     return data_sets
 
