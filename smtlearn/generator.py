@@ -305,14 +305,15 @@ def generate_synthetic_data_sampling(data_sets_per_setting, bool_count, real_cou
 
         half_spaces = []
         print("Generating half spaces: ", end="")
-        while len(half_spaces) < h:
-            half_space = generate_half_space_sample(domain, real_count)
-            indices = {i for i in range(sample_count) if smt_test(half_space, samples[i])}
-            if True or test_ratio(indices):
-                half_spaces.append((half_space, indices))
-                print("y", end="")
-            else:
-                print("x", end="")
+        if real_count > 0:
+            while len(half_spaces) < h:
+                half_space = generate_half_space_sample(domain, real_count)
+                indices = {i for i in range(sample_count) if smt_test(half_space, samples[i])}
+                if True or test_ratio(indices):
+                    half_spaces.append((half_space, indices))
+                    print("y", end="")
+                else:
+                    print("x", end="")
         print()
 
         bool_literals = [(domain.get_symbol(v), {i for i in range(sample_count) if samples[i][v]})
@@ -320,6 +321,7 @@ def generate_synthetic_data_sampling(data_sets_per_setting, bool_count, real_cou
 
         literal_pool = half_spaces + bool_literals
         literal_pool += [(smt.Not(l), {i for i in range(sample_count)} - indices) for l, indices in literal_pool]
+        random.shuffle(literal_pool)
 
         term_pool = []
         print("Generating terms: ", end="")
@@ -341,6 +343,7 @@ def generate_synthetic_data_sampling(data_sets_per_setting, bool_count, real_cou
         print()
 
         print("Generating formulas: ", end="")
+        random.shuffle(term_pool)
         for terms in itertools.combinations(term_pool, k):
             formula = smt.And(*[t[0] for t in terms])
             covered = {i for i in range(sample_count)}
