@@ -8,6 +8,7 @@ import json
 import os
 import random
 
+import itertools
 import pysmt.shortcuts as smt
 import re
 
@@ -21,6 +22,7 @@ from incremental_learner import RandomViolationsStrategy
 from k_cnf_smt_learner import KCnfSmtLearner
 from k_dnf_smt_learner import KDnfSmtLearner
 from parameter_free_learner import learn_bottom_up
+from smt_print import pretty_print
 from smt_walk import SmtWalker
 
 
@@ -333,10 +335,10 @@ def learn(sample_count, subdir=None, learn_all=False, learn_dnf=False):
     print("PRINT", sample_count, subdir, learn_all, learn_dnf)
     for name, props in files.items():
         if props["loaded"] and props["var_count"] < 10 and not has_equals(props) and has_disjunctions(props) and \
-                ratio_dict[name]["finite"] and 0.1 <= ratio_dict[name]["ratio"] <= 0.9:
+                ratio_dict[name]["finite"] and 0.2 <= ratio_dict[name]["ratio"] <= 0.8:
             with open(get_problem_file(props["id"]), "r") as f:
                 target_problem = problem.import_problem(json.load(f))
-            adapted_problem = adapt_domain(target_problem, ratio_dict[name]["lb"], ratio_dict[name]["ub"])
+            adapted_problem = adapt_domain_multiple(target_problem, ratio_dict[name]["bounds"])
             samples = generator.get_problem_samples(adapted_problem, sample_count, 1)
             domain = adapted_problem.domain
             learn_formula(props["id"], domain, len(props["half_spaces"]), samples, seed, subdir, learn_all, learn_dnf)
@@ -352,6 +354,12 @@ def adapt_domain(target_problem, lb, ub):
     return problem.Problem(adapted_domain, target_problem.theory, target_problem.name)
 
 
+def adapt_domain_multiple(target_problem, new_bounds):
+    domain = target_problem.domain
+    adapted_domain = problem.Domain(domain.variables, domain.var_types, new_bounds)
+    return problem.Problem(adapted_domain, target_problem.theory, target_problem.name)
+
+
 def ratios():
     flat = load()
     files = flat["files"]
@@ -359,23 +367,31 @@ def ratios():
         flat["ratios"] = dict()
     ratio_dict = flat["ratios"]
 
-    sample_count = 1000
+    sample_count = 100
     for name, props in files.items():
-        if props["loaded"] and props["var_count"] < 10 and not has_equals(props) and has_disjunctions(props) and \
-                name not in ratio_dict:
+        if props["loaded"] and props["var_count"] < 10 and not has_equals(props) and has_disjunctions(props):
             with open(get_problem_file(props["id"]), "r") as f:
                 target_problem = problem.import_problem(json.load(f))
 
-            lb, ub = -1000, 1000
-            current_problem = adapt_domain(target_problem, lb, ub)
-            samples = generator.get_problem_samples(current_problem, sample_count, 1)
-            positive_count = len([x for x, y in samples if y])
-            is_finite = positive_count not in [0, sample_count]
-            ratio_dict[name] = {"finite": is_finite, "samples": sample_count, "lb": lb, "ub": ub}
-            if is_finite:
-                ratio_dict[name]["ratio"] = positive_count / sample_count
-            print(name, ratio_dict[name])
-
+            bounds_pool = [(-1, 1), (-10, 10), (-100, 100), (-1000, 1000)]
+            domain = target_problem.domain
+            result = {"finite": False, "samples": sample_count}
+            for bounds in itertools.product(*[bounds_pool for _ in range(len(domain.real_vars))]):
+                var_bounds = dict(zip(domain.real_vars, bounds))
+                current_problem = adapt_domain_multiple(target_problem, var_bounds)
+                samples = generator.get_problem_samples(current_problem, sample_count, 1)
+                positive_count = len([x for x, y in samples if y])
+                is_finite = positive_count not in [0, sample_count]
+                if is_finite:
+                    ratio = positive_count / sample_count
+                    if not result["finite"] or abs(ratio - 0.5) < abs(result["ratio"] - 0.5):
+                        result["finite"] = True
+                        result["ratio"] = ratio
+                        result["bounds"] = var_bounds
+                    if abs(ratio - 0.5) <= 0.1:
+                        break
+            print(result)
+            ratio_dict[name] = result
     dump(flat)
 
 
