@@ -8,7 +8,6 @@ import os
 
 import time
 
-import plotting
 from generator import import_synthetic_data_files
 from inc_logging import LoggingObserver
 from incremental_learner import AllViolationsStrategy, RandomViolationsStrategy
@@ -16,7 +15,7 @@ from k_cnf_smt_learner import KCnfSmtLearner
 from k_dnf_smt_learner import KDnfSmtLearner
 
 
-def learn_synthetic(input_dir, prefix, results_dir, bias):
+def learn_synthetic(input_dir, prefix, results_dir, bias, plot=None):
     input_dir = os.path.abspath(input_dir)
     data_sets = list(import_synthetic_data_files(input_dir, prefix))
 
@@ -53,7 +52,8 @@ def learn_synthetic(input_dir, prefix, results_dir, bias):
             elif bias == "dnf":
                 learner = KDnfSmtLearner(k, h, selection_strategy)
 
-            if synthetic_problem.bool_count == 0 and synthetic_problem.real_count == 2:
+            if plot is not None and plot and synthetic_problem.bool_count == 0 and synthetic_problem.real_count == 2:
+                import plotting
                 feats = synthetic_problem.theory_problem.domain.real_vars
                 plots_dir = os.path.join(results_dir, name)
                 exp_id = "{}_{}_{}".format(learner.name, sample_count, seed)
@@ -76,5 +76,6 @@ if __name__ == "__main__":
     parser.add_argument("prefix")
     parser.add_argument("output_dir")
     parser.add_argument("bias")
+    parser.add_argument("-p", "--plot", action="store_true")
     parsed = parser.parse_args()
-    learn_synthetic(parsed.input_dir, parsed.prefix, parsed.output_dir, parsed.bias)
+    learn_synthetic(parsed.input_dir, parsed.prefix, parsed.output_dir, parsed.bias, parsed.plot)
