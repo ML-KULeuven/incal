@@ -9,7 +9,6 @@ import itertools
 import pysmt.shortcuts as smt
 import time
 
-import plotting
 import problem
 import parse
 from smt_print import pretty_print
@@ -406,6 +405,7 @@ def test():
     h = 7
     sample_count = 1000
     i = 0
+    import plotting
     for data_set in generate_synthetic_data_sampling(10, b_count, r_count, cnf_or_dnf, k, l_per_term, h, sample_count,
                                                      0.85, seed, prefix):
         data_file = os.path.join(data_dir, "{}.txt".format(data_set.synthetic_problem.theory_problem.name))
