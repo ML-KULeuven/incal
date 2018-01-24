@@ -308,7 +308,7 @@ def learn_formula(problem_id, domain, h, data, seed, subdir=None, learn_all=Fals
         learner.add_observer(inc_logging.LoggingObserver(log_file, seed, True, violations_strategy))
         learned_theory = learner.learn(domain, data, initial_indices)
         # learned_theory = Or(*[And(*planes) for planes in hyperplane_dnf])
-        print("Learned theory:\n{}".format(parse.smt_to_nested(learned_theory)))
+        print("Learned theory:\n{}".format(pretty_print(learned_theory)))
         return learned_theory
 
     phi, k, h = learn_bottom_up(data, learn_inc, 1, 1, init_h=h, max_h=h)
@@ -321,7 +321,7 @@ def learn_formula(problem_id, domain, h, data, seed, subdir=None, learn_all=Fals
             flat = json.load(f)
     if problem_id not in flat:
         flat[problem_id] = {}
-    flat[problem_id][len(data)] = {"k": k, "h": h, "seed": seed}
+    flat[problem_id][len(data)] = {"k": k, "h": h, "seed": seed, "bias": "dnf" if learn_dnf else "cnf"}
     with open(overview, "w") as f:
         json.dump(flat, f)
 

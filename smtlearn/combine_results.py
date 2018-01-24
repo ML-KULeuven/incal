@@ -9,11 +9,11 @@ import shutil
 import migrate
 
 
-def combine(output_dir, dirs):
+def combine(output_dir, dirs, bias=None):
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
-    migrate.migrate_results(output_dir)
+    migrate.migrate_results(output_dir, bias)
 
     summary = os.path.join(output_dir, "problems.txt")
     if not os.path.isfile(summary):
@@ -23,7 +23,7 @@ def combine(output_dir, dirs):
             flat = json.load(f)
 
     for input_dir in dirs:
-        migrate.migrate_results(input_dir)
+        migrate.migrate_results(input_dir, bias)
         input_summary = os.path.join(input_dir, "problems.txt")
         with open(input_summary, "r") as f:
             input_flat = json.load(f)
@@ -56,8 +56,9 @@ def parse():
     parser = argparse.ArgumentParser()
     parser.add_argument("output_dir")
     parser.add_argument("dirs", nargs="*")
+    parser.add_argument("-b", "--bias", default=None, help="Specify the bias")
     parsed = parser.parse_args()
-    combine(parsed.output_dir, parsed.dirs)
+    combine(parsed.output_dir, parsed.dirs, parsed.bias)
 
 
 if __name__ == "__main__":
