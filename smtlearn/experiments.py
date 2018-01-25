@@ -13,9 +13,10 @@ from inc_logging import LoggingObserver
 from incremental_learner import AllViolationsStrategy, RandomViolationsStrategy
 from k_cnf_smt_learner import KCnfSmtLearner
 from k_dnf_smt_learner import KDnfSmtLearner
+from timeout import timeout
 
 
-def learn_synthetic(input_dir, prefix, results_dir, bias, plot=None, sample_count=None):
+def learn_synthetic(input_dir, prefix, results_dir, bias, plot=None, sample_count=None, time_out=None):
     input_dir = os.path.abspath(input_dir)
     data_sets = list(import_synthetic_data_files(input_dir, prefix))
 
@@ -48,6 +49,7 @@ def learn_synthetic(input_dir, prefix, results_dir, bias, plot=None, sample_coun
         initial_indices = random.sample(list(range(sample_count)), 20)
         h = synthetic_problem.half_space_count
         k = synthetic_problem.formula_count
+        domain = synthetic_problem.theory_problem.domain
 
         if bias == "cnf" or bias == "dnf":
             selection_strategy = RandomViolationsStrategy(10)
@@ -58,7 +60,7 @@ def learn_synthetic(input_dir, prefix, results_dir, bias, plot=None, sample_coun
 
             if plot is not None and plot and synthetic_problem.bool_count == 0 and synthetic_problem.real_count == 2:
                 import plotting
-                feats = synthetic_problem.theory_problem.domain.real_vars
+                feats = domain.real_vars
                 plots_dir = os.path.join(results_dir, name)
                 exp_id = "{}_{}_{}".format(learner.name, sample_count, seed)
                 learner.add_observer(plotting.PlottingObserver(data, plots_dir, exp_id, *feats))
@@ -67,8 +69,13 @@ def learn_synthetic(input_dir, prefix, results_dir, bias, plot=None, sample_coun
         else:
             raise RuntimeError("Unknown bias {}".format(bias))
 
-        learner.learn(synthetic_problem.theory_problem.domain, data, initial_indices)
-        flat[name][sample_count] = {"k": k, "h": h, "seed": seed, "bias": bias}
+        result = timeout(learner.learn, [domain, data, initial_indices], duration=time_out)
+        if result is None:
+            flat[name][sample_count] = {"k": k, "h": h, "seed": seed, "bias": bias, "time_out": True}
+        else:
+            flat[name][sample_count] = {"k": k, "h": h, "seed": seed, "bias": bias, "time_out": False}
+        if time_out is not None:
+            flat[name][sample_count]["time_limit"] = time_out
 
     with open(overview, "w") as f:
         json.dump(flat, f)
@@ -82,5 +89,7 @@ if __name__ == "__main__":
     parser.add_argument("bias")
     parser.add_argument("-p", "--plot", action="store_true")
     parser.add_argument("-s", "--samples", default=None)
+    parser.add_argument("-t", "--time_out", default=None)
     parsed = parser.parse_args()
-    learn_synthetic(parsed.input_dir, parsed.prefix, parsed.output_dir, parsed.bias, parsed.plot, parsed.samples)
+    learn_synthetic(parsed.input_dir, parsed.prefix, parsed.output_dir, parsed.bias, parsed.plot, parsed.samples,
+                    parsed.time_out)

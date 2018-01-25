@@ -419,20 +419,26 @@ def summarize(results_dir, output_type):
         unique_names.add(name)
         for sample_size in results_flat[problem_id]:
             unique_sample_sizes.add(sample_size)
+            timed_out = results_flat[problem_id][sample_size].get("time_out", False)
             seed, k, h = (results_flat[problem_id][sample_size][v] for v in ["seed", "k", "h"])
             log_file = "{}_{}_{}_{}_{}.learning_log.txt".format(problem_id, sample_size, seed, k, h)
             log_file_full = os.path.join(results_dir, log_file)
-            durations = []
-            with open(log_file_full, "r") as f:
-                for line in f:
-                    flat = json.loads(line)
-                    if flat["type"] == "update":
-                        durations.append(flat["selection_time"] + flat["solving_time"])
-            duration_table[(name, sample_size)] = sum(durations)
+            if not timed_out:
+                durations = []
+                with open(log_file_full, "r") as f:
+                    for line in f:
+                        flat = json.loads(line)
+                        if flat["type"] == "update":
+                            durations.append(flat["selection_time"] + flat["solving_time"])
+                duration_table[(name, sample_size)] = sum(durations)
+                if simple_output:
+                    print(name, sample_size, sum(durations), sep="\t")
+            else:
+                duration_table[(name, sample_size)] = "({})".format(results_flat[problem_id][sample_size]["time_limit"])
+                if simple_output:
+                    print(name, sample_size, None, sep="\t")
             k_table[(name, sample_size)] = k
             h_table[(name, sample_size)] = h
-            if simple_output:
-                print(name, sample_size, sum(durations), sep="\t")
 
     names = list(sorted(unique_names))
     sample_sizes = list(sorted(unique_sample_sizes, key=int))
