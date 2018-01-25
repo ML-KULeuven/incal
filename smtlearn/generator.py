@@ -401,12 +401,14 @@ def import_synthetic_data_files(directory, prefix):
                 yield import_synthetic_data(json.load(f))
 
 
-def generate(data_sets, prefix, b_count, r_count, cnf_or_dnf, k, l_per_term, h, sample_count, ratio_percent):
+def generate(data_sets, prefix, b_count, r_count, cnf_or_dnf, k, l_per_term, h, sample_count, ratio_percent,
+             data_dir, plot_dir=None):
     seed = hash(time.time())
     random.seed(seed)
 
-    data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
-    output_base_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "output")
+    if not os.path.exists(data_dir):
+        os.makedirs(data_dir)
+
     i = 0
     import plotting
     for data_set in generate_synthetic_data_sampling(data_sets, b_count, r_count, cnf_or_dnf, k, l_per_term, h,
@@ -416,11 +418,11 @@ def generate(data_sets, prefix, b_count, r_count, cnf_or_dnf, k, l_per_term, h, 
         with open(data_file, "w") as f:
             print(export_synthetic_data(data_set), file=f)
 
-        if b_count == 0 and r_count == 2:
+        if plot_dir is not None and b_count == 0 and r_count == 2:
             dir_name = get_synthetic_problem_name(prefix, b_count, r_count, cnf_or_dnf, k, l_per_term, h, sample_count,
                                                   seed, ratio_percent)
-            output_dir = os.path.join(output_base_dir, dir_name)
             domain = data_set.synthetic_problem.theory_problem.domain
+            output_dir = os.path.join(plot_dir, dir_name)
             if not os.path.exists(output_dir):
                 os.makedirs(output_dir)
             indices = list(range(len(data_set.samples)))
@@ -432,6 +434,7 @@ def generate(data_sets, prefix, b_count, r_count, cnf_or_dnf, k, l_per_term, h, 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument("data_dir")
     parser.add_argument("--data_sets", default=10, type=int)
     parser.add_argument("--prefix", default="synthetics")
     parser.add_argument("--bool_count", default=2, type=int)
@@ -442,6 +445,7 @@ if __name__ == "__main__":
     parser.add_argument("--h", default=7, type=int)
     parser.add_argument("--sample_count", default=1000, type=int)
     parser.add_argument("--ratio", default=90, type=int)
+    parser.add_argument("-p", "--plotting_dir", default=None)
     parsed = parser.parse_args()
     generate(parsed.data_sets, parsed.prefix, parsed.bool_count, parsed.real_count, parsed.bias, parsed.k,
-             parsed.literals, parsed.h, parsed.sample_count, parsed.ratio)
+             parsed.literals, parsed.h, parsed.sample_count, parsed.ratio, parsed.data_dir, parsed.plot_dir)
