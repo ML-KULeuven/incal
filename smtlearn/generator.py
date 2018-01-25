@@ -445,7 +445,7 @@ if __name__ == "__main__":
     parser.add_argument("--h", default=7, type=int)
     parser.add_argument("--sample_count", default=1000, type=int)
     parser.add_argument("--ratio", default=90, type=int)
-    parser.add_argument("-p", "--plotting_dir", default=None)
+    parser.add_argument("-p", "--plot_dir", default=None)
     parsed = parser.parse_args()
     generate(parsed.data_sets, parsed.prefix, parsed.bool_count, parsed.real_count, parsed.bias, parsed.k,
              parsed.literals, parsed.h, parsed.sample_count, parsed.ratio, parsed.data_dir, parsed.plot_dir)
