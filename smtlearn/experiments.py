@@ -15,7 +15,7 @@ from k_cnf_smt_learner import KCnfSmtLearner
 from k_dnf_smt_learner import KDnfSmtLearner
 
 
-def learn_synthetic(input_dir, prefix, results_dir, bias, plot=None):
+def learn_synthetic(input_dir, prefix, results_dir, bias, plot=None, sample_count=None):
     input_dir = os.path.abspath(input_dir)
     data_sets = list(import_synthetic_data_files(input_dir, prefix))
 
@@ -29,6 +29,7 @@ def learn_synthetic(input_dir, prefix, results_dir, bias, plot=None):
 
     for data_set in data_sets:
         synthetic_problem = data_set.synthetic_problem
+        data = data_set.samples
         name = synthetic_problem.theory_problem.name
 
         if name not in flat:
@@ -36,10 +37,13 @@ def learn_synthetic(input_dir, prefix, results_dir, bias, plot=None):
 
         print(name)
 
-        sample_count = len(data_set.samples)
-
         seed = hash(time.time())
         random.seed(seed)
+
+        if sample_count is not None and sample_count < len(data):
+            data = random.sample(data, sample_count)
+        else:
+            sample_count = len(data)
 
         initial_indices = random.sample(list(range(sample_count)), 20)
         h = synthetic_problem.half_space_count
@@ -57,13 +61,13 @@ def learn_synthetic(input_dir, prefix, results_dir, bias, plot=None):
                 feats = synthetic_problem.theory_problem.domain.real_vars
                 plots_dir = os.path.join(results_dir, name)
                 exp_id = "{}_{}_{}".format(learner.name, sample_count, seed)
-                learner.add_observer(plotting.PlottingObserver(data_set.samples, plots_dir, exp_id, *feats))
+                learner.add_observer(plotting.PlottingObserver(data, plots_dir, exp_id, *feats))
             log_file = "{}_{}_{}_{}_{}.learning_log.txt".format(name, sample_count, seed, k, h)
             learner.add_observer(LoggingObserver(os.path.join(results_dir, log_file), seed, True, selection_strategy))
         else:
             raise RuntimeError("Unknown bias {}".format(bias))
 
-        learner.learn(synthetic_problem.theory_problem.domain, data_set.samples, initial_indices)
+        learner.learn(synthetic_problem.theory_problem.domain, data, initial_indices)
         flat[name][sample_count] = {"k": k, "h": h, "seed": seed, "bias": bias}
 
     with open(overview, "w") as f:
@@ -77,5 +81,6 @@ if __name__ == "__main__":
     parser.add_argument("output_dir")
     parser.add_argument("bias")
     parser.add_argument("-p", "--plot", action="store_true")
+    parser.add_argument("-s", "--samples", default=None)
     parsed = parser.parse_args()
-    learn_synthetic(parsed.input_dir, parsed.prefix, parsed.output_dir, parsed.bias, parsed.plot)
+    learn_synthetic(parsed.input_dir, parsed.prefix, parsed.output_dir, parsed.bias, parsed.plot, parsed.samples)
