@@ -20,6 +20,8 @@ def learn_synthetic(input_dir, prefix, results_dir, bias, plot=None, sample_coun
     input_dir = os.path.abspath(input_dir)
     data_sets = list(import_synthetic_data_files(input_dir, prefix))
 
+    if not os.path.exists(results_dir):
+        os.makedirs(results_dir)
     overview = os.path.join(results_dir, "problems.txt")
 
     if not os.path.isfile(overview):
@@ -88,8 +90,8 @@ if __name__ == "__main__":
     parser.add_argument("output_dir")
     parser.add_argument("bias")
     parser.add_argument("-p", "--plot", action="store_true")
-    parser.add_argument("-s", "--samples", default=None)
-    parser.add_argument("-t", "--time_out", default=None)
+    parser.add_argument("-s", "--samples", default=None, type=int)
+    parser.add_argument("-t", "--time_out", default=None, type=int)
     parsed = parser.parse_args()
     learn_synthetic(parsed.input_dir, parsed.prefix, parsed.output_dir, parsed.bias, parsed.plot, parsed.samples,
                     parsed.time_out)

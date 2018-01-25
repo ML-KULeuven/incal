@@ -1,4 +1,9 @@
 def timeout(func, args=None, kwargs=None, duration=1, default=None):
+    if args is None:
+        args = ()
+    if kwargs is None:
+        kwargs = dict()
+
     if duration is None:
         return func(*args, **kwargs)
 
@@ -13,11 +18,6 @@ def timeout(func, args=None, kwargs=None, duration=1, default=None):
     # set the timeout handler
     signal.signal(signal.SIGALRM, handler)
     signal.alarm(duration)
-
-    if args is None:
-        args = ()
-    if kwargs is None:
-        kwargs = dict()
 
     try:
         result = func(*args, **kwargs)
