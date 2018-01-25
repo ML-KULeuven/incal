@@ -39,6 +39,18 @@ class SyntheticProblem(object):
     def real_count(self):
         return len(self.theory_problem.domain.real_vars)
 
+    @property
+    def k(self):
+        return self.formula_count
+
+    @property
+    def h(self):
+        return self.half_space_count
+
+    @property
+    def literals(self):
+        return self.terms_per_formula
+
     def get_data(self, sample_count, max_ratio):
         samples = get_problem_samples(self.theory_problem, sample_count, max_ratio)
         return SyntheticData(self, samples)
@@ -86,10 +98,10 @@ def export_synthetic_problem(synthetic_problem, to_str=True):
 
 def import_synthetic_problem(flat):
     theory_problem = problem.import_problem(flat["problem"])
-    cnf_or_dnf = flat["cnf_or_dnf"]
-    formula_count = flat["formula_count"]
-    terms_per_formula = flat["terms_per_formula"]
-    half_space_count = flat["half_space_count"]
+    cnf_or_dnf = str(flat["cnf_or_dnf"])
+    formula_count = int(flat["formula_count"])
+    terms_per_formula = int(flat["terms_per_formula"])
+    half_space_count = int(flat["half_space_count"])
     return SyntheticProblem(theory_problem, cnf_or_dnf, formula_count, terms_per_formula, half_space_count)
 
 

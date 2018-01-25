@@ -285,12 +285,9 @@ def analyze(root_dir):
                 print(*[str(i) for i in information], sep="\t")
 
 
-def learn_formula(problem_id, domain, h, data, seed, subdir=None, learn_all=False, learn_dnf=False):
+def learn_formula(problem_id, domain, h, data, seed, log_dir, learn_all=False, learn_dnf=False):
     initial_size = 20
     violations_size = 10
-    log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "demo", "results")
-    if subdir is not None:
-        log_dir = os.path.join(log_dir, subdir)
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
 
@@ -326,13 +323,12 @@ def learn_formula(problem_id, domain, h, data, seed, subdir=None, learn_all=Fals
         json.dump(flat, f)
 
 
-def learn(sample_count, subdir=None, learn_all=False, learn_dnf=False):
+def learn(sample_count, log_dir, learn_all=False, learn_dnf=False):
     flat = load()
     files = flat["files"]
     ratio_dict = flat["ratios"]
     seed = hash(time.time())
     random.seed(seed)
-    print("PRINT", sample_count, subdir, learn_all, learn_dnf)
     for name, props in files.items():
         if props["loaded"] and props["var_count"] < 10 and not has_equals(props) and has_disjunctions(props) and \
                 ratio_dict[name]["finite"] and 0.2 <= ratio_dict[name]["ratio"] <= 0.8:
@@ -341,7 +337,7 @@ def learn(sample_count, subdir=None, learn_all=False, learn_dnf=False):
             adapted_problem = adapt_domain_multiple(target_problem, ratio_dict[name]["bounds"])
             samples = generator.get_problem_samples(adapted_problem, sample_count, 1)
             domain = adapted_problem.domain
-            learn_formula(props["id"], domain, len(props["half_spaces"]), samples, seed, subdir, learn_all, learn_dnf)
+            learn_formula(props["id"], domain, len(props["half_spaces"]), samples, seed, log_dir, learn_all, learn_dnf)
             print(props["id"], name)
 
 
@@ -459,29 +455,218 @@ def summarize(results_dir, output_type):
             print(name, *[h_table.get((name, sample_size), "") for sample_size in sample_sizes], sep="\t")
 
 
+class TableMaker(object):
+    def __init__(self, results_dir, row_key_type, col_key_type, value_type, delimiter=None, data_dir=None):
+        self.results_dir = results_dir
+        self.row_key_type = row_key_type
+        self.col_key_type = col_key_type
+        self.value_type = value_type
+        self.delimiter = "\t" if delimiter is None else delimiter
+        self.data_dir = data_dir
+        self.row_keys = None
+        self.col_keys = None
+        self.table = None
+        self.load_table()
+
+    def extract(self, extraction_type, config):
+        # noinspection PyCallingNonCallable
+        return {
+            "id": lambda c: str(c["problem_id"]),
+            "name": self.extract_benchmark_name,
+            "time": self.extract_time,
+            "k": lambda c: int(c[extraction_type]),
+            "h": lambda c: int(c[extraction_type]),
+            "samples": lambda c: int(c["sample_size"]),
+            "l": self.extract_literals
+        }[extraction_type](config)
+
+    def get_name(self, extraction_type):
+        return {
+            "id": "Problem ID",
+            "name": "Name",
+            "time": "Time (s)",
+            "k": "k (# terms)",
+            "h": "h (# halfspaces)",
+            "samples": "# samples",
+            "l": "# literals",
+        }[extraction_type]
+
+    @staticmethod
+    def extract_benchmark_name(config):
+        flat = load()
+        return str(flat["lookup"][config["problem_id"]])
+
+    def extract_time(self, config):
+        timed_out = config.get("time_out", False)
+        problem_id, sample_size, seed, k, h = (config[v] for v in ["problem_id", "sample_size", "seed", "k", "h"])
+        log_file = "{}_{}_{}_{}_{}.learning_log.txt".format(problem_id, sample_size, seed, k, h)
+        log_file_full = os.path.join(self.results_dir, log_file)
+        if not timed_out:
+            durations = []
+            with open(log_file_full, "r") as f:
+                for line in f:
+                    flat = json.loads(line)
+                    if flat["type"] == "update":
+                        durations.append(flat["selection_time"] + flat["solving_time"])
+            return sum(durations)
+        else:
+            return "({})".format(config["time_limit"])
+
+    def extract_literals(self, config):
+        with open(os.path.join(self.data_dir, "{}.txt".format(str(config["problem_id"])))) as f:
+            s_problem = generator.import_synthetic_data(json.load(f))
+        return s_problem.synthetic_problem.literals
+
+    def load_problems(self):
+        results_file = os.path.join(self.results_dir, "problems.txt")
+        with open(results_file, "r") as f:
+            results_flat = json.load(f)
+        return results_flat
+
+    def load_table(self):
+        problems = self.load_problems()
+
+        unique_row_keys = set()
+        unique_col_keys = set()
+        table = dict()
+
+        for problem_id in problems:
+            for sample_size in problems[problem_id]:
+                config = problems[problem_id][sample_size]
+                config["problem_id"] = problem_id
+                config["sample_size"] = sample_size
+
+                row_key = self.extract(self.row_key_type, config)
+                col_key = self.extract(self.col_key_type, config)
+                value = self.extract(self.value_type, config)
+
+                unique_row_keys.add(row_key)
+                unique_col_keys.add(col_key)
+                if (row_key, col_key) not in table:
+                    table[(row_key, col_key)] = []
+                table[(row_key, col_key)].append(value)
+
+        unique_row_keys = unique_row_keys
+        unique_col_keys = unique_col_keys
+        row_key_is_int = all(isinstance(k, (int, long)) for k in unique_row_keys)
+        self.row_keys = list(sorted(unique_row_keys, key=(int if row_key_is_int else str)))
+        col_key_is_int = all(isinstance(k, (int, long)) for k in unique_col_keys)
+        self.col_keys = list(sorted(unique_col_keys, key=(int if col_key_is_int else str)))
+
+        self.table = table
+
+        return self
+
+    def __str__(self):
+        def get_val(_key):
+            if _key not in self.table:
+                return ""
+            elif len(self.table[_key]) == 1:
+                return self.table[_key][0]
+            else:
+                initial = self.table[_key][0]
+                for i in range(1, len(self.table[_key])):
+                    initial += self.table[_key][i]
+                return initial / len(self.table[_key])
+
+        lines = [self.delimiter.join([""] + [str(k) for k in self.col_keys])]
+        for rk in self.row_keys:
+            lines.append(self.delimiter.join([str(rk)] + [str(get_val((rk, ck))) for ck in self.col_keys]))
+        return "\n".join(lines)
+
+    def plot_table(self, aggregate=False, y_min=None, y_max=None, x_min=None, x_max=None):
+        import rendering
+        import numpy
+
+        def get_val(_key):
+            if _key not in self.table:
+                return numpy.nan
+            else:
+                return numpy.nanmean(self.table[_key])
+
+        scatter = rendering.ScatterData("", numpy.array(self.col_keys))
+        scatter.y_lim([y_min, y_max])
+        scatter.x_lim([x_min, x_max])
+        series = [numpy.array([get_val((rk, ck)) for ck in self.col_keys]) for rk in self.row_keys]
+        if aggregate:
+            series_array = numpy.array(series)
+            legend_name = "Average " + self.get_name(self.value_type)
+            scatter.add_data(legend_name, numpy.nanmean(series_array, 0), numpy.std(numpy.array(series), 0))
+            # std_dev_series =
+        else:
+            for i in range(len(self.row_keys)):
+                scatter.add_data(self.row_keys[i], series[i])
+        scatter.plot(lines=True, log_x=False, log_y=False, label_y=self.get_name(self.value_type),
+                     label_x=self.get_name(self.col_key_type))
+
+
 if __name__ == "__main__":
     def parse_args():
         parser = argparse.ArgumentParser()
-        parser.add_argument("-f", "--filename", default=None, help="Specify the filename to load files from")
-        parser.add_argument("-l", "--learning_samples", type=int, help="Specify the number of samples for learning")
-        parser.add_argument("-s", "--subdir", default=None, help="Specify the results subdirectory")
-        parser.add_argument("-a", "--all", default=None, action="store_true",
-                            help="If set, learning will not use incremental mode")
-        parser.add_argument("-d", "--dnf", default=None, action="store_true", help="If set, bias is DNF instead of CNF")
-        parser.add_argument("-r", "--results", default=None, help="Specify the results directory")
-        parser.add_argument("-t", "--table", default=None, help="Specify what type of table to print [time, k, h]")
+        subparsers = parser.add_subparsers(dest="mode")
+
+        scan_parser = subparsers.add_parser("scan", help="Scan the directory and load smt problems")
+        scan_parser.add_argument("-d", "--dir", default=None, help="Specify the directory to load files from")
+
+        learn_parser = subparsers.add_parser("learn", help="Learn SMT formulas")
+        learn_parser.add_argument("dir", help="Specify the results directory")
+        learn_parser.add_argument("-s", "--samples", type=int, help="Specify the number of samples for learning")
+        learn_parser.add_argument("-a", "--all", default=False, action="store_true",
+                                  help="If set, learning will not use incremental mode and include all examples")
+        learn_parser.add_argument("-d", "--dnf", default=False, action="store_true",
+                                  help="If set, learning bias is DNF instead of CNF")
+
+        table_parser = subparsers.add_parser("table", help="Types can be: [time, k, h, id, acc, samples, l]")
+        table_parser.add_argument("dir", help="Specify the directory to load files from")
+        table_parser.add_argument("row_key", help="Specify the row key type")
+        table_parser.add_argument("col_key", default=None, help="Specify the col key type")
+        table_parser.add_argument("value", default=None, help="Specify the value type")
+        table_parser.add_argument("--data", default=None, help="Specify the data directory for synthetic parameters")
+
+        table_subparsers = table_parser.add_subparsers(dest="command")
+        table_print_parser = table_subparsers.add_parser("print", help="Print the table")
+        table_print_parser.add_argument("-d", "--delimiter", default="\t", help="Specify the delimiter (default=tab)")
+
+        table_plot_parser = table_subparsers.add_parser("plot", help="Plot the table")
+        table_plot_parser.add_argument("-a", "--aggregate", default=False, action="store_true",
+                                       help="Aggregate the rows in the plot")
+        table_plot_parser.add_argument("--y_min", default=None, type=int, help="Minimum value for y")
+        table_plot_parser.add_argument("--y_max", default=None, type=int, help="Maximum value for y")
+        table_plot_parser.add_argument("--x_min", default=None, type=int, help="Minimum value for x")
+        table_plot_parser.add_argument("--x_max", default=None, type=int, help="Maximum value for x")
+
+        combine_parser = subparsers.add_parser("combine", help="Combine multiple results directories")
+        combine_parser.add_argument("output_dir", help="The output directory to summarize results in")
+        combine_parser.add_argument("input_dirs", nargs="*", help="Specify the directories to combine")
+        combine_parser.add_argument("-b", "--bias", default=None, help="Specify the bias")
+        combine_parser.add_argument("-p", "--prefix", default=None, help="Specify the prefix for input dirs")
+
         args = parser.parse_args()
 
-        if args.filename is not None:
+        if args.mode == "scan":
             full_dir = os.path.abspath(args.filename)
             root_dir = os.path.dirname(full_dir)
 
             scan(full_dir, root_dir)
             analyze(root_dir)
             ratios()
-        elif args.results is not None:
-            summarize(args.results, args.table)
-        else:
-            learn(args.learning_samples, args.subdir, args.all, args.dnf)
+        elif args.mode == "learn":
+            learn(args.samples, args.dir, args.all, args.dnf)
+        elif args.mode == "table":
+            table = TableMaker(args.dir, args.row_key, args.col_key, args.value, data_dir=args.data).load_table()
+            if args.command == "print":
+                table.delimiter = args.delimiter
+                print(table)
+            elif args.command == "plot":
+                table.plot_table(args.aggregate, args.y_min, args.y_max, args.x_min, args.x_max)
+        elif args.mode == "combine":
+            import combine_results
+            combine_results.combine(args.output_dir, args.input_dirs, args.bias, args.prefix)
+
+        # if args.filename is not None:
+        # elif args.results is not None:
+        #     summarize(args.results, args.table)
+        # else:
+        #     learn(args.learning_samples, args.subdir, args.all, args.dnf)
 
     parse_args()
