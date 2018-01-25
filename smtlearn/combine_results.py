@@ -9,7 +9,7 @@ import shutil
 import migrate
 
 
-def combine(output_dir, dirs, bias=None):
+def combine(output_dir, dirs, bias=None, prefix=None):
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
@@ -21,6 +21,9 @@ def combine(output_dir, dirs, bias=None):
     else:
         with open(summary, "r") as f:
             flat = json.load(f)
+
+    if prefix is not None:
+        dirs = [str(prefix) + str(directory) for directory in dirs]
 
     for input_dir in dirs:
         migrate.migrate_results(input_dir, bias)
@@ -57,8 +60,9 @@ def parse():
     parser.add_argument("output_dir")
     parser.add_argument("dirs", nargs="*")
     parser.add_argument("-b", "--bias", default=None, help="Specify the bias")
+    parser.add_argument("-p", "--prefix", default=None, help="Specify the prefix for input dirs")
     parsed = parser.parse_args()
-    combine(parsed.output_dir, parsed.dirs, parsed.bias)
+    combine(parsed.output_dir, parsed.dirs, parsed.bias, parsed.prefix)
 
 
 if __name__ == "__main__":
