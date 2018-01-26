@@ -7,6 +7,8 @@ import random
 import os
 
 import itertools
+
+from bitarray import bitarray
 import pysmt.shortcuts as smt
 import time
 
@@ -303,16 +305,160 @@ def get_synthetic_problem_name(prefix, bool_count, real_count, cnf_or_dnf, k, l_
     return name
 
 
+class GeneratorError(RuntimeError):
+    pass
+
+
+class Generator(object):
+    def __init__(self, bool_count, real_count, bias, k, l, h, sample_count, max_ratio, seed, prefix):
+        self.domain = generate_domain(bool_count, real_count)
+        self.bias = bias
+        self.k = k
+        self.l = l
+        self.h = h
+        self.sample_count = sample_count
+        self.max_ratio = max_ratio
+        self.seed = seed
+        self.prefix = prefix + "_r"
+        self.max_tries = 10000
+
+    @property
+    def bool_count(self):
+        return len(self.domain.bool_vars)
+
+    @property
+    def real_count(self):
+        return len(self.domain.real_vars)
+
+    def symbol(self, var_name):
+        return self.domain.get_symbol(var_name)
+
+    def test_ratio(self, bits):
+        max_ratio = max(self.max_ratio, 1 - self.max_ratio)
+        return (1 - max_ratio) <= bits.count() / self.sample_count <= max_ratio
+
+    def get_name(self, i):
+        b = self.bool_count
+        r = self.real_count
+        ratio = self.max_ratio * 100
+        k, l, h = self.k, self.l, self.h
+        return get_synthetic_problem_name(self.prefix, b, r, self.bias, k, l, h, self.sample_count, self.seed, ratio, i)
+
+    def get_samples(self):
+        return [get_sample(self.domain) for _ in range(self.sample_count)]
+
+    def get_half_spaces(self, samples):
+        half_spaces = []
+        print("Generating half spaces: ", end="")
+        if self.real_count > 0:
+            while len(half_spaces) < self.h:
+                half_space = generate_half_space_sample(self.domain, self.real_count)
+                bits = bitarray([smt_test(half_space, sample) for sample in samples])
+                if True or self.test_ratio(bits):
+                    half_spaces.append((half_space, bits))
+                    print("y", end="")
+                else:
+                    print("x", end="")
+        print()
+        return half_spaces
+
+    def get_term(self, literal_pool):
+        print("Generate term: ", end="")
+        for i in range(self.max_tries):
+            literals = random.sample(literal_pool, self.l)
+
+            term = smt.Or(*zip(*literals)[0])
+
+            covered = bitarray(self.sample_count)
+            covered.setall(False)
+            significant_literals = 0
+            for _, bits in literals:
+                prev_size = covered.count()
+                covered |= bits
+                if (covered.count() - prev_size) / self.sample_count >= 0.05:
+                    significant_literals += 1
+
+            if significant_literals == self.l:  # & test_ratio(covered):
+                print("y", end="")
+                print()
+                return term, covered
+            else:
+                print("x", end="")
+        print(" Failed after {} tries".format(self.max_tries))
+        raise GeneratorError()
+
+    def get_formula(self, name, literal_pool):
+        print("Generate formula:")
+        for i in range(self.max_tries):
+            terms = [self.get_term(literal_pool) for _ in range(self.k)]
+            formula = smt.And(*zip(*terms)[0])
+
+            covered = bitarray(self.sample_count)
+            covered.setall(True)
+            significant_terms = 0
+            for _, bits in terms:
+                prev_size = covered.count()
+                covered &= bits
+                if (prev_size - covered.count()) / self.sample_count >= 0.05:
+                    significant_terms += 1
+
+            if significant_terms == self.k and self.test_ratio(covered):
+                print("y({:.2f})".format(covered.count() / self.sample_count), end="")
+                data_set = self.get_data_set(name, formula)
+                data_set_positives = bitarray([example[1] for example in data_set.samples])
+                if self.test_ratio(data_set_positives):
+                    print("c({:.2f})".format(data_set_positives.count() / self.sample_count))
+                    return data_set
+                else:
+                    print("r({:.2f})".format(data_set_positives.count() / self.sample_count))
+            else:
+                if not self.test_ratio(covered):
+                    print("Ratio not satisfied")
+                else:
+                    print("Not enough significant terms")
+        print("Failed to generate formula after {} tries".format(self.max_tries))
+        raise GeneratorError()
+
+    def get_data_set(self, name, formula):
+        theory_problem = problem.Problem(self.domain, formula, name)
+        synthetic_problem = SyntheticProblem(theory_problem, "cnf", self.k, self.l, self.h)
+        data_set = synthetic_problem.get_data(self.sample_count, 1)
+        return data_set
+
+    def generate(self, n):
+        count = 0
+        i = 0
+        while count < n and i < self.max_tries:
+            print("Generate data set {}".format(count))
+            i += 1
+            samples = self.get_samples()
+
+            half_spaces = self.get_half_spaces(self.get_samples())
+
+            bool_literals = [(self.symbol(v), bitarray([sample[v] for sample in samples])) for v in self.domain.bool_vars]
+            literal_pool = half_spaces + bool_literals
+            literal_pool += [(smt.Not(l), ~bits) for l, bits in literal_pool]
+
+            try:
+                formula = self.get_formula(self.get_name(i), literal_pool)
+                count += 1
+                yield formula
+            except GeneratorError:
+                continue
+        if i == self.max_tries:
+            print("Failed to generate enough data sets after {} tries".format(self.max_tries))
+
+
 def generate_synthetic_data_sampling(data_sets_per_setting, bool_count, real_count, cnf_or_dnf, k, l_per_term, h,
                                      sample_count, max_ratio, seed, prefix="synthetics"):
     def test_ratio(_indices):
         return (1 - max_ratio) * sample_count <= len(_indices) <= max_ratio * sample_count
 
-    data_sets = []
+    data_set_count = 0
     domain = generate_domain(bool_count, real_count)
-    while len(data_sets) < data_sets_per_setting:
+    while data_set_count < data_sets_per_setting:
         name = get_synthetic_problem_name(prefix, bool_count, real_count, cnf_or_dnf, k, l_per_term, h, sample_count,
-                                          seed, max_ratio * 100, len(data_sets))
+                                          seed, max_ratio * 100, data_set_count)
         samples = [get_sample(domain) for _ in range(sample_count)]
 
         half_spaces = []
@@ -357,7 +503,7 @@ def generate_synthetic_data_sampling(data_sets_per_setting, bool_count, real_cou
         print("Generating formulas: ", end="")
         random.shuffle(term_pool)
         counter = 0
-        max_tries = 1000
+        max_tries = 10000
         for terms in itertools.combinations(term_pool, k):
             if counter >= max_tries:
                 print("Restart")
@@ -376,8 +522,9 @@ def generate_synthetic_data_sampling(data_sets_per_setting, bool_count, real_cou
                 data_set = synthetic_problem.get_data(sample_count, 1)
                 new_sample_positives = [sample for sample in data_set.samples if sample[1]]
                 if test_ratio(new_sample_positives):
-                    data_sets.append(data_set)
-                    print("c({:.2f})".format(len(new_sample_positives) / sample_count), end="")
+                    print("c({:.2f})".format(len(new_sample_positives) / sample_count))
+                    data_set_count += 1
+                    yield data_set
                     break
                 else:
                     print("r({:.2f})".format(len(new_sample_positives) / sample_count), end="")
@@ -386,7 +533,6 @@ def generate_synthetic_data_sampling(data_sets_per_setting, bool_count, real_cou
             print(" ", end="")
             counter += 1
         print()
-    return data_sets
 
 
 def generate_synthetic_data(data_sets_per_setting, bool_count, real_count, cnf_or_dnf, formula_count, terms_per_formula,
@@ -422,16 +568,46 @@ def generate(data_sets, prefix, b_count, r_count, cnf_or_dnf, k, l_per_term, h, 
         os.makedirs(data_dir)
 
     i = 0
-    import plotting
     for data_set in generate_synthetic_data_sampling(data_sets, b_count, r_count, cnf_or_dnf, k, l_per_term, h,
-                                                     sample_count,
-                                                     ratio_percent / 100, seed, prefix):
+                                                    sample_count, ratio_percent / 100, seed, prefix):
         data_file = os.path.join(data_dir, "{}.txt".format(data_set.synthetic_problem.theory_problem.name))
         with open(data_file, "w") as f:
             print(export_synthetic_data(data_set), file=f)
 
         if plot_dir is not None and b_count == 0 and r_count == 2:
+            import plotting
             dir_name = get_synthetic_problem_name(prefix, b_count, r_count, cnf_or_dnf, k, l_per_term, h, sample_count,
+                                                  seed, ratio_percent)
+            domain = data_set.synthetic_problem.theory_problem.domain
+            output_dir = os.path.join(plot_dir, dir_name)
+            if not os.path.exists(output_dir):
+                os.makedirs(output_dir)
+            indices = list(range(len(data_set.samples)))
+            name = os.path.join(output_dir, "overview_{}".format(i))
+            plotting.draw_border_points(domain.real_vars[0], domain.real_vars[1], data_set.samples, indices, name)
+
+        i += 1
+
+
+def generate_random(data_sets, prefix, b_count, r_count, cnf_or_dnf, k, lits, h, sample_count, ratio_percent,
+                    data_dir, plot_dir=None):
+
+    seed = hash(time.time())
+    random.seed(seed)
+
+    if not os.path.exists(data_dir):
+        os.makedirs(data_dir)
+
+    i = 0
+    producer = Generator(b_count, r_count, cnf_or_dnf, k, lits, h, sample_count, ratio_percent / 100, seed, prefix)
+    for data_set in producer.generate(data_sets):
+        data_file = os.path.join(data_dir, "{}.txt".format(data_set.synthetic_problem.theory_problem.name))
+        with open(data_file, "w") as f:
+            print(export_synthetic_data(data_set), file=f)
+
+        if plot_dir is not None and b_count == 0 and r_count == 2:
+            import plotting
+            dir_name = get_synthetic_problem_name(prefix, b_count, r_count, cnf_or_dnf, k, lits, h, sample_count,
                                                   seed, ratio_percent)
             domain = data_set.synthetic_problem.theory_problem.domain
             output_dir = os.path.join(plot_dir, dir_name)
@@ -459,5 +635,5 @@ if __name__ == "__main__":
     parser.add_argument("--ratio", default=90, type=int)
     parser.add_argument("-p", "--plot_dir", default=None)
     parsed = parser.parse_args()
-    generate(parsed.data_sets, parsed.prefix, parsed.bool_count, parsed.real_count, parsed.bias, parsed.k,
+    generate_random(parsed.data_sets, parsed.prefix, parsed.bool_count, parsed.real_count, parsed.bias, parsed.k,
              parsed.literals, parsed.h, parsed.sample_count, parsed.ratio, parsed.data_dir, parsed.plot_dir)

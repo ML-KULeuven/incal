@@ -1,11 +1,15 @@
 import argparse
-import glob
 import json
 
 import os
 import shutil
 
 import re
+
+import parse
+import problem
+from smt_scan import load_results, get_log_messages, dump_results
+import pysmt.shortcuts as smt
 
 
 def migrate_results(directory, bias=None):
@@ -32,15 +36,38 @@ def migrate_results(directory, bias=None):
             json.dump(flat, f)
 
 
-def parse():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-t", "--type", help="Specify the type of migration")
-    parser.add_argument("-r", "--results", help="Specify the result directory")
-    parser.add_argument("-b", "--bias", default=None, help="Specify the bias")
-    parsed = parser.parse_args()
-    if parsed.type == "results":
-        migrate_results(parsed.results, parsed.bias)
+def calculate_accuracy(domain, target_formula, learned_formula):
+    from sys import path
+    path.insert(0, "/Users/samuelkolb/Documents/PhD/wmi-pa/experiments/client")
+    from run import compute_wmi
+    print(compute_wmi(domain, [smt.Iff(target_formula, smt.Not(learned_formula))]))
 
+
+def add_accuracy(results_dir, data_dir=None):
+    results_flat = load_results(results_dir)
+
+    for problem_id in results_flat:
+        for sample_size in results_flat[problem_id]:
+            config = results_flat[problem_id][sample_size]
+            timed_out = config.get("time_out", False)
+            if not timed_out:
+                learned_formula = None
+                for message in get_log_messages(results_dir, config):
+                    if message["type"] == "update":
+                        learned_formula = parse.nested_to_smt(message["theory"])
+
+                if data_dir is not None:
+                    with open(os.path.join(data_dir, "{}.txt".format(str(config["problem_id"])))) as f:
+                        import generator
+                        s_problem = generator.import_synthetic_data(json.load(f))
+                    target_formula = s_problem.synthetic_problem.theory_problem.theory
+                    domain = s_problem.synthetic_problem.theory_problem.domain
+                else:
+                    raise RuntimeError("Not yet implemented")
+                config["accuracy"] = calculate_accuracy(domain, target_formula, learned_formula)
+
+    dump_results(results_flat, results_dir)
 
 if __name__ == "__main__":
-    parse()
+    x = smt.Symbol("x", smt.REAL)
+    calculate_accuracy(problem.Domain(["x"], {"x": smt.REAL}, {"x": (0, 1)}), x <= smt.Real(0.5), x <= smt.Real(0.4))

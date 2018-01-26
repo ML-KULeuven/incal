@@ -1,6 +1,5 @@
 from __future__ import print_function, division
 
-import argparse
 import fnmatch
 import hashlib
 import json
@@ -455,6 +454,30 @@ def summarize(results_dir, output_type):
             print(name, *[h_table.get((name, sample_size), "") for sample_size in sample_sizes], sep="\t")
 
 
+def load_results(results_dir):
+    results_file = os.path.join(results_dir, "problems.txt")
+    with open(results_file, "r") as f:
+        results_flat = json.load(f)
+    return results_flat
+
+
+def dump_results(results_flat, results_dir):
+    results_file = os.path.join(results_dir, "problems.txt")
+    with open(results_file, "w") as f:
+        json.dump(results_flat, f)
+
+
+def get_log_messages(results_dir, config):
+    problem_id, sample_size, seed, k, h = (config[v] for v in ["problem_id", "sample_size", "seed", "k", "h"])
+    log_file = "{}_{}_{}_{}_{}.learning_log.txt".format(problem_id, sample_size, seed, k, h)
+    log_file_full = os.path.join(results_dir.results_dir, log_file)
+    flats = []
+    with open(log_file_full, "r") as f:
+        for line in f:
+            flats.append(json.loads(line))
+    return flats
+
+
 class TableMaker(object):
     def __init__(self, results_dir, row_key_type, col_key_type, value_type, delimiter=None, data_dir=None):
         self.results_dir = results_dir
@@ -498,16 +521,11 @@ class TableMaker(object):
 
     def extract_time(self, config):
         timed_out = config.get("time_out", False)
-        problem_id, sample_size, seed, k, h = (config[v] for v in ["problem_id", "sample_size", "seed", "k", "h"])
-        log_file = "{}_{}_{}_{}_{}.learning_log.txt".format(problem_id, sample_size, seed, k, h)
-        log_file_full = os.path.join(self.results_dir, log_file)
         if not timed_out:
             durations = []
-            with open(log_file_full, "r") as f:
-                for line in f:
-                    flat = json.loads(line)
-                    if flat["type"] == "update":
-                        durations.append(flat["selection_time"] + flat["solving_time"])
+            for message in get_log_messages(self.results_dir, config):
+                if message["type"] == "update":
+                    durations.append(message["selection_time"] + message["solving_time"])
             return sum(durations)
         else:
             return "({})".format(config["time_limit"])
@@ -517,11 +535,21 @@ class TableMaker(object):
             s_problem = generator.import_synthetic_data(json.load(f))
         return s_problem.synthetic_problem.literals
 
-    def load_problems(self):
-        results_file = os.path.join(self.results_dir, "problems.txt")
-        with open(results_file, "r") as f:
-            results_flat = json.load(f)
-        return results_flat
+    def extract_accuracy(self, config):
+        timed_out = config.get("time_out", False)
+        if not timed_out:
+            learned_formula = None
+            for message in self.get_log_messages(config):
+                if message["type"] == "update":
+                    learned_formula = parse.nested_to_smt(message["theory"])
+
+            with open(os.path.join(self.data_dir, "{}.txt".format(str(config["problem_id"])))) as f:
+                s_problem = generator.import_synthetic_data(json.load(f))
+            target_formula = s_problem.synthetic_problem.theory_problem.theory
+            return calculate_accuracy(target_formula, learned_formula)
+        else:
+            return None
+
 
     def load_table(self):
         problems = self.load_problems()
@@ -598,75 +626,3 @@ class TableMaker(object):
                 scatter.add_data(self.row_keys[i], series[i])
         scatter.plot(lines=True, log_x=False, log_y=False, label_y=self.get_name(self.value_type),
                      label_x=self.get_name(self.col_key_type))
-
-
-if __name__ == "__main__":
-    def parse_args():
-        parser = argparse.ArgumentParser()
-        subparsers = parser.add_subparsers(dest="mode")
-
-        scan_parser = subparsers.add_parser("scan", help="Scan the directory and load smt problems")
-        scan_parser.add_argument("-d", "--dir", default=None, help="Specify the directory to load files from")
-
-        learn_parser = subparsers.add_parser("learn", help="Learn SMT formulas")
-        learn_parser.add_argument("dir", help="Specify the results directory")
-        learn_parser.add_argument("-s", "--samples", type=int, help="Specify the number of samples for learning")
-        learn_parser.add_argument("-a", "--all", default=False, action="store_true",
-                                  help="If set, learning will not use incremental mode and include all examples")
-        learn_parser.add_argument("-d", "--dnf", default=False, action="store_true",
-                                  help="If set, learning bias is DNF instead of CNF")
-
-        table_parser = subparsers.add_parser("table", help="Types can be: [time, k, h, id, acc, samples, l]")
-        table_parser.add_argument("dir", help="Specify the directory to load files from")
-        table_parser.add_argument("row_key", help="Specify the row key type")
-        table_parser.add_argument("col_key", default=None, help="Specify the col key type")
-        table_parser.add_argument("value", default=None, help="Specify the value type")
-        table_parser.add_argument("--data", default=None, help="Specify the data directory for synthetic parameters")
-
-        table_subparsers = table_parser.add_subparsers(dest="command")
-        table_print_parser = table_subparsers.add_parser("print", help="Print the table")
-        table_print_parser.add_argument("-d", "--delimiter", default="\t", help="Specify the delimiter (default=tab)")
-
-        table_plot_parser = table_subparsers.add_parser("plot", help="Plot the table")
-        table_plot_parser.add_argument("-a", "--aggregate", default=False, action="store_true",
-                                       help="Aggregate the rows in the plot")
-        table_plot_parser.add_argument("--y_min", default=None, type=int, help="Minimum value for y")
-        table_plot_parser.add_argument("--y_max", default=None, type=int, help="Maximum value for y")
-        table_plot_parser.add_argument("--x_min", default=None, type=int, help="Minimum value for x")
-        table_plot_parser.add_argument("--x_max", default=None, type=int, help="Maximum value for x")
-
-        combine_parser = subparsers.add_parser("combine", help="Combine multiple results directories")
-        combine_parser.add_argument("output_dir", help="The output directory to summarize results in")
-        combine_parser.add_argument("input_dirs", nargs="*", help="Specify the directories to combine")
-        combine_parser.add_argument("-b", "--bias", default=None, help="Specify the bias")
-        combine_parser.add_argument("-p", "--prefix", default=None, help="Specify the prefix for input dirs")
-
-        args = parser.parse_args()
-
-        if args.mode == "scan":
-            full_dir = os.path.abspath(args.filename)
-            root_dir = os.path.dirname(full_dir)
-
-            scan(full_dir, root_dir)
-            analyze(root_dir)
-            ratios()
-        elif args.mode == "learn":
-            learn(args.samples, args.dir, args.all, args.dnf)
-        elif args.mode == "table":
-            table = TableMaker(args.dir, args.row_key, args.col_key, args.value, data_dir=args.data).load_table()
-            if args.command == "print":
-                table.delimiter = args.delimiter
-                print(table)
-            elif args.command == "plot":
-                table.plot_table(args.aggregate, args.y_min, args.y_max, args.x_min, args.x_max)
-        elif args.mode == "combine":
-            import combine_results
-            combine_results.combine(args.output_dir, args.input_dirs, args.bias, args.prefix)
-
-        # if args.filename is not None:
-        # elif args.results is not None:
-        #     summarize(args.results, args.table)
-        # else:
-        #     learn(args.learning_samples, args.subdir, args.all, args.dnf)
-
-    parse_args()
