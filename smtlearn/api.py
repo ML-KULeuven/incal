@@ -32,10 +32,11 @@ if __name__ == "__main__":
         table_plot_parser = table_subparsers.add_parser("plot", help="Plot the table")
         table_plot_parser.add_argument("-a", "--aggregate", default=False, action="store_true",
                                        help="Aggregate the rows in the plot")
-        table_plot_parser.add_argument("--y_min", default=None, type=int, help="Minimum value for y")
-        table_plot_parser.add_argument("--y_max", default=None, type=int, help="Maximum value for y")
-        table_plot_parser.add_argument("--x_min", default=None, type=int, help="Minimum value for x")
-        table_plot_parser.add_argument("--x_max", default=None, type=int, help="Maximum value for x")
+        table_plot_parser.add_argument("--y_min", default=None, type=float, help="Minimum value for y")
+        table_plot_parser.add_argument("--y_max", default=None, type=float, help="Maximum value for y")
+        table_plot_parser.add_argument("--x_min", default=None, type=float, help="Minimum value for x")
+        table_plot_parser.add_argument("--x_max", default=None, type=float, help="Maximum value for x")
+        table_plot_parser.add_argument("-o", "--output", default=None, help="Specify the output file")
 
         combine_parser = subparsers.add_parser("combine", help="Combine multiple results directories")
         combine_parser.add_argument("output_dir", help="The output directory to summarize results in")
@@ -67,6 +68,7 @@ if __name__ == "__main__":
         migration_acc_parser = migration_subparsers.add_parser("accuracy", help="Add accuracy to result files")
         migration_acc_parser.add_argument("results_dir", help="Specify the result directory")
         migration_acc_parser.add_argument("-d", "--data_dir", help="Specify the data directory for synthetic problems")
+        migration_acc_parser.add_argument("-s", "--samples", default=None, help="Specify the number of samples", type=int)
 
         args = parser.parse_args()
 
@@ -89,7 +91,7 @@ if __name__ == "__main__":
                 table.delimiter = args.delimiter
                 print(table)
             elif args.command == "plot":
-                table.plot_table(args.aggregate, args.y_min, args.y_max, args.x_min, args.x_max)
+                table.plot_table(args.output, args.aggregate, args.y_min, args.y_max, args.x_min, args.x_max)
             else:
                 print("Error: unknown table command {}".format(args.command))
         elif args.mode == "combine":
@@ -104,7 +106,7 @@ if __name__ == "__main__":
             if args.type == "fix":
                 migrate.migrate_results(args.results_dir, args.bias)
             elif args.type == "accuracy":
-                migrate.add_accuracy(args.results_dir, args.data_dir)
+                migrate.add_accuracy(args.results_dir, args.data_dir, args.samples)
             else:
                 print("Error: unknown migration type {}".format(args.type))
         else:

@@ -61,7 +61,8 @@ class ScatterData:
                 ax.errorbar(x_data, times, error, linestyle='None', color=colors[i])
 
         ax.grid(True)
-        ax.legend(plots, (t[0] for t in self.data), loc=legend_pos)
+        if len(self.data) < 10:
+            ax.legend(plots, (t[0] for t in self.data), loc=legend_pos)
 
         if log_x:
             ax.set_xscale('log')

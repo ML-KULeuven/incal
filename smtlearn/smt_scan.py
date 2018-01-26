@@ -504,7 +504,8 @@ class TableMaker(object):
             "k": lambda c: int(c[extraction_type]),
             "h": lambda c: int(c[extraction_type]),
             "samples": lambda c: int(c["sample_size"]),
-            "l": self.extract_literals
+            "l": self.extract_literals,
+            "acc": self.extract_accuracy,
         }[extraction_type](config)
 
     def get_name(self, extraction_type):
@@ -516,6 +517,7 @@ class TableMaker(object):
             "h": "h (# halfspaces)",
             "samples": "# samples",
             "l": "# literals",
+            "acc": "accuracy",
         }[extraction_type]
 
     @staticmethod
@@ -542,15 +544,7 @@ class TableMaker(object):
     def extract_accuracy(self, config):
         timed_out = config.get("time_out", False)
         if not timed_out:
-            learned_formula = None
-            for message in get_log_messages(self.results_dir, config):
-                if message["type"] == "update":
-                    learned_formula = parse.nested_to_smt(message["theory"])
-
-            with open(os.path.join(self.data_dir, "{}.txt".format(str(config["problem_id"])))) as f:
-                s_problem = generator.import_synthetic_data(json.load(f))
-            target_formula = s_problem.synthetic_problem.theory_problem.theory
-            return calculate_accuracy(target_formula, learned_formula)
+            return config["approx_accuracy"]["1000"][0]["acc"]
         else:
             return None
 
@@ -605,7 +599,7 @@ class TableMaker(object):
             lines.append(self.delimiter.join([str(rk)] + [str(get_val((rk, ck))) for ck in self.col_keys]))
         return "\n".join(lines)
 
-    def plot_table(self, aggregate=False, y_min=None, y_max=None, x_min=None, x_max=None):
+    def plot_table(self, filename=None, aggregate=False, y_min=None, y_max=None, x_min=None, x_max=None):
         import rendering
         import numpy
 
@@ -627,5 +621,5 @@ class TableMaker(object):
         else:
             for i in range(len(self.row_keys)):
                 scatter.add_data(self.row_keys[i], series[i])
-        scatter.plot(lines=True, log_x=False, log_y=False, label_y=self.get_name(self.value_type),
+        scatter.plot(filename=filename, lines=True, log_x=False, log_y=False, label_y=self.get_name(self.value_type),
                      label_x=self.get_name(self.col_key_type))
