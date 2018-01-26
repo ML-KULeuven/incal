@@ -8,6 +8,7 @@ import re
 
 import parse
 import problem
+from smt_print import pretty_print
 from smt_scan import load_results, get_log_messages, dump_results
 import pysmt.shortcuts as smt
 
@@ -40,7 +41,14 @@ def calculate_accuracy(domain, target_formula, learned_formula):
     from sys import path
     path.insert(0, "/Users/samuelkolb/Documents/PhD/wmi-pa/experiments/client")
     from run import compute_wmi
-    print(compute_wmi(domain, [smt.Iff(target_formula, smt.Not(learned_formula))]))
+    print("Calculate accuracy:")
+    print(domain)
+    print(pretty_print(target_formula))
+    print(pretty_print(learned_formula))
+    accuracy = list(compute_wmi(domain, [smt.Iff(target_formula, learned_formula)]))[0]
+    print(accuracy)
+    exit()
+    return accuracy
 
 
 def add_accuracy(results_dir, data_dir=None):
@@ -52,12 +60,12 @@ def add_accuracy(results_dir, data_dir=None):
             timed_out = config.get("time_out", False)
             if not timed_out:
                 learned_formula = None
-                for message in get_log_messages(results_dir, config):
+                for message in get_log_messages(results_dir, config, p_id=problem_id, samples=sample_size):
                     if message["type"] == "update":
                         learned_formula = parse.nested_to_smt(message["theory"])
 
                 if data_dir is not None:
-                    with open(os.path.join(data_dir, "{}.txt".format(str(config["problem_id"])))) as f:
+                    with open(os.path.join(data_dir, "{}.txt".format(str(problem_id)))) as f:
                         import generator
                         s_problem = generator.import_synthetic_data(json.load(f))
                     target_formula = s_problem.synthetic_problem.theory_problem.theory
@@ -66,7 +74,8 @@ def add_accuracy(results_dir, data_dir=None):
                     raise RuntimeError("Not yet implemented")
                 config["accuracy"] = calculate_accuracy(domain, target_formula, learned_formula)
 
-    dump_results(results_flat, results_dir)
+    # dump_results(results_flat, results_dir)
+
 
 if __name__ == "__main__":
     x = smt.Symbol("x", smt.REAL)

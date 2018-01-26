@@ -24,6 +24,11 @@ class Domain(object):
     def get_symbol(self, variable):
         return smt.Symbol(variable, self.var_types[variable])
 
+    def __str__(self):
+        return "({})".format(", ".join(
+            ("{}[{}, {}]".format(v, *self.var_domains[v]) if self.var_types[v] is smt.REAL else v)
+            for v in self.variables))
+
 
 class Problem(object):
     def __init__(self, domain, theory, name):

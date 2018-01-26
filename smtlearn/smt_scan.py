@@ -467,10 +467,14 @@ def dump_results(results_flat, results_dir):
         json.dump(results_flat, f)
 
 
-def get_log_messages(results_dir, config):
-    problem_id, sample_size, seed, k, h = (config[v] for v in ["problem_id", "sample_size", "seed", "k", "h"])
+def get_log_messages(results_dir, config, p_id=None, samples=None):
+    id_key = "problem_id" if "problem_id" in config else "id"
+    sample_key = "sample_size" if "sample_size" in config else "samples"
+    problem_id = config[id_key] if p_id is None else p_id
+    sample_size = config[sample_key] if samples is None else samples
+    seed, k, h = (config[v] for v in ["seed", "k", "h"])
     log_file = "{}_{}_{}_{}_{}.learning_log.txt".format(problem_id, sample_size, seed, k, h)
-    log_file_full = os.path.join(results_dir.results_dir, log_file)
+    log_file_full = os.path.join(results_dir, log_file)
     flats = []
     with open(log_file_full, "r") as f:
         for line in f:
@@ -539,7 +543,7 @@ class TableMaker(object):
         timed_out = config.get("time_out", False)
         if not timed_out:
             learned_formula = None
-            for message in self.get_log_messages(config):
+            for message in get_log_messages(self.results_dir, config):
                 if message["type"] == "update":
                     learned_formula = parse.nested_to_smt(message["theory"])
 
@@ -550,9 +554,8 @@ class TableMaker(object):
         else:
             return None
 
-
     def load_table(self):
-        problems = self.load_problems()
+        problems = load_results(self.results_dir)
 
         unique_row_keys = set()
         unique_col_keys = set()
@@ -619,7 +622,7 @@ class TableMaker(object):
         if aggregate:
             series_array = numpy.array(series)
             legend_name = "Average " + self.get_name(self.value_type)
-            scatter.add_data(legend_name, numpy.nanmean(series_array, 0), numpy.std(numpy.array(series), 0))
+            scatter.add_data(legend_name, numpy.nanmean(series_array, 0), numpy.nanstd(numpy.array(series), 0))
             # std_dev_series =
         else:
             for i in range(len(self.row_keys)):
