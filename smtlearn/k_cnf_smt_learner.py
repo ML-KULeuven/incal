@@ -58,6 +58,12 @@ class KCnfSmtLearner(IncrementalLearner):
                     + [s_cb[c][b] for b in range(n_b_original, n_b) if not x_b[b - n_b_original]]
                 )))
 
+            for c in range(n_c):
+                for h in range(n_h_original):
+                    solver.add_assertion(~(s_ch[c][h] & s_ch[c][h + n_h_original]))
+                for b in range(n_b_original):
+                    solver.add_assertion(~(s_cb[c][b] & s_cb[c][b + n_b_original]))
+
             if label:
                 solver.add_assertion(smt.And([s_ic[i][c] for c in range(n_c)]))
             else:
