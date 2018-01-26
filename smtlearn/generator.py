@@ -8,7 +8,6 @@ import os
 
 import itertools
 
-from bitarray import bitarray
 import pysmt.shortcuts as smt
 import time
 
@@ -348,6 +347,8 @@ class Generator(object):
         return [get_sample(self.domain) for _ in range(self.sample_count)]
 
     def get_half_spaces(self, samples):
+        from bitarray import bitarray
+
         half_spaces = []
         print("Generating half spaces: ", end="")
         if self.real_count > 0:
@@ -363,6 +364,8 @@ class Generator(object):
         return half_spaces
 
     def get_term(self, literal_pool):
+        from bitarray import bitarray
+
         print("Generate term: ", end="")
         for i in range(self.max_tries):
             literals = random.sample(literal_pool, self.l)
@@ -388,6 +391,8 @@ class Generator(object):
         raise GeneratorError()
 
     def get_formula(self, name, literal_pool):
+        from bitarray import bitarray
+
         print("Generate formula:")
         for i in range(self.max_tries):
             terms = [self.get_term(literal_pool) for _ in range(self.k)]
@@ -426,6 +431,8 @@ class Generator(object):
         return data_set
 
     def generate(self, n):
+        from bitarray import bitarray
+
         count = 0
         i = 0
         while count < n and i < self.max_tries:
