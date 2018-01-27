@@ -16,7 +16,7 @@ from k_dnf_smt_learner import KDnfSmtLearner
 from timeout import timeout
 
 
-def learn_synthetic(input_dir, prefix, results_dir, bias, plot=None, sample_count=None, time_out=None):
+def learn_synthetic(input_dir, prefix, results_dir, bias, plot=None, sample_count=None, time_out=None, non_inc=False):
     input_dir = os.path.abspath(input_dir)
     data_sets = list(import_synthetic_data_files(input_dir, prefix))
 
@@ -48,7 +48,7 @@ def learn_synthetic(input_dir, prefix, results_dir, bias, plot=None, sample_coun
         else:
             sample_count = len(data)
 
-        initial_indices = random.sample(list(range(sample_count)), 20)
+        initial_indices = None if non_inc else random.sample(list(range(sample_count)), 20)
         h = synthetic_problem.half_space_count
         k = synthetic_problem.formula_count
         domain = synthetic_problem.theory_problem.domain
@@ -92,6 +92,7 @@ if __name__ == "__main__":
     parser.add_argument("-p", "--plot", action="store_true")
     parser.add_argument("-s", "--samples", default=None, type=int)
     parser.add_argument("-t", "--time_out", default=None, type=int)
+    parser.add_argument("-a", "--non_incremental", default=False, action="store_true")
     parsed = parser.parse_args()
     learn_synthetic(parsed.input_dir, parsed.prefix, parsed.output_dir, parsed.bias, parsed.plot, parsed.samples,
-                    parsed.time_out)
+                    parsed.time_out, parsed.non_incremental)
