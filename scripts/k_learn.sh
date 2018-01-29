@@ -7,6 +7,6 @@ cd ../smtlearn
 declare -a options=(1 2 3 4 5)
 
 for i in "${options[@]}"; do
-    python api.py generate ../synthetic/kk/1 -n 100 -b 6 -r 2 -k $i -l 3 --h 6
+    python experiments.py ../synthetic/ss/$i "" ../output/synthetic/kk/$i cnf -t 200 &
 done
 wait

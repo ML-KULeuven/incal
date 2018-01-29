@@ -9,4 +9,4 @@ for i in "${options[@]}"; do
 done
 wait
 
-scp -R ../synthetic/kk samuelk@himec04.cs.kuleuven.be:/home/samuelk/projects/smtlearn/output/synthetic/
+scp -r ../synthetic/kk samuelk@himec04.cs.kuleuven.be:/home/samuelk/projects/smtlearn/output/synthetic/
