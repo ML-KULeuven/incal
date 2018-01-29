@@ -2,6 +2,8 @@ import argparse
 
 import os
 
+import math
+
 if __name__ == "__main__":
     def parse_args():
         parser = argparse.ArgumentParser()
@@ -19,11 +21,11 @@ if __name__ == "__main__":
                                   help="If set, learning bias is DNF instead of CNF")
 
         table_parser = subparsers.add_parser("table", help="Types can be: [time, k, h, id, acc, samples, l]")
-        table_parser.add_argument("dir", help="Specify the directory to load files from")
         table_parser.add_argument("row_key", help="Specify the row key type")
         table_parser.add_argument("col_key", default=None, help="Specify the col key type")
         table_parser.add_argument("value", default=None, help="Specify the value type")
-        table_parser.add_argument("--data", default=None, help="Specify the data directory for synthetic parameters")
+        table_parser.add_argument("dirs", nargs="*", help="Specify the directories to load files from, always in pairs:"
+                                                          "result_dir, data_dir")
 
         table_subparsers = table_parser.add_subparsers(dest="command")
         table_print_parser = table_subparsers.add_parser("print", help="Print the table")
@@ -69,6 +71,13 @@ if __name__ == "__main__":
         migration_acc_parser.add_argument("results_dir", help="Specify the result directory")
         migration_acc_parser.add_argument("-d", "--data_dir", help="Specify the data directory for synthetic problems")
         migration_acc_parser.add_argument("-s", "--samples", default=None, help="Specify the number of samples", type=int)
+        migration_acc_parser.add_argument("-f", "--force", default=False, action="store_true", help="Overwrites existing values")
+
+        migration_ratio_parser = migration_subparsers.add_parser("ratio", help="Add ratio to result files")
+        migration_ratio_parser.add_argument("results_dir", help="Specify the result directory")
+        migration_ratio_parser.add_argument("-d", "--data_dir", help="Specify the data directory for synthetic problems")
+        migration_ratio_parser.add_argument("-s", "--samples", default=None, help="Specify the number of samples", type=int)
+        migration_ratio_parser.add_argument("-f", "--force", default=False, action="store_true", help="Overwrites existing values")
 
         args = parser.parse_args()
 
@@ -85,13 +94,14 @@ if __name__ == "__main__":
             smt_scan.learn(args.samples, args.dir, args.all, args.dnf)
         elif args.mode == "table":
             import smt_scan
-            table = smt_scan.TableMaker(args.dir, args.row_key, args.col_key, args.value, data_dir=args.data)
-            table.load_table()
+            table = smt_scan.TableMaker(args.row_key, args.col_key, args.value)
+            for i in range(int(math.floor(len(args.dirs) / 2))):
+                table.load_table(args.dirs[2 * i], args.dirs[2 * i + 1])
             if args.command == "print":
                 table.delimiter = args.delimiter
-                print(table)
+                print(table.to_txt(0))
             elif args.command == "plot":
-                table.plot_table(args.output, args.aggregate, args.y_min, args.y_max, args.x_min, args.x_max)
+                table.plot_table(args.output, None if args.aggregate else 0, args.y_min, args.y_max, args.x_min, args.x_max)
             else:
                 print("Error: unknown table command {}".format(args.command))
         elif args.mode == "combine":
@@ -106,7 +116,9 @@ if __name__ == "__main__":
             if args.type == "fix":
                 migrate.migrate_results(args.results_dir, args.bias)
             elif args.type == "accuracy":
-                migrate.add_accuracy(args.results_dir, args.data_dir, args.samples)
+                migrate.add_accuracy(args.results_dir, args.data_dir, args.samples, args.force)
+            elif args.type == "ratio":
+                migrate.add_ratio(args.results_dir, args.data_dir, args.samples, args.force)
             else:
                 print("Error: unknown migration type {}".format(args.type))
         else:

@@ -483,30 +483,29 @@ def get_log_messages(results_dir, config, p_id=None, samples=None):
 
 
 class TableMaker(object):
-    def __init__(self, results_dir, row_key_type, col_key_type, value_type, delimiter=None, data_dir=None):
-        self.results_dir = results_dir
+    def __init__(self, row_key_type, col_key_type, value_type, delimiter=None):
         self.row_key_type = row_key_type
         self.col_key_type = col_key_type
         self.value_type = value_type
         self.delimiter = "\t" if delimiter is None else delimiter
-        self.data_dir = data_dir
-        self.row_keys = None
-        self.col_keys = None
-        self.table = None
-        self.load_table()
+        self.row_keys = []
+        self.col_keys = []
+        self.tables = []
 
-    def extract(self, extraction_type, config):
+    def extract(self, extraction_type, results_dir, data_dir, config):
         # noinspection PyCallingNonCallable
         return {
-            "id": lambda c: str(c["problem_id"]),
+            "id": lambda r, d, c: str(c["problem_id"]),
             "name": self.extract_benchmark_name,
             "time": self.extract_time,
-            "k": lambda c: int(c[extraction_type]),
-            "h": lambda c: int(c[extraction_type]),
-            "samples": lambda c: int(c["sample_size"]),
+            "k": lambda r, d, c: int(c[extraction_type]),
+            "h": lambda r, d, c: int(c[extraction_type]),
+            "samples": lambda r, d, c: int(c["sample_size"]),
             "l": self.extract_literals,
             "acc": self.extract_accuracy,
-        }[extraction_type](config)
+            "rel_acc": self.extract_relative_accuracy,
+            "ratio": self.extract_ratio,
+        }[extraction_type](results_dir, data_dir, config)
 
     def get_name(self, extraction_type):
         return {
@@ -518,38 +517,58 @@ class TableMaker(object):
             "samples": "# samples",
             "l": "# literals",
             "acc": "accuracy",
+            "rel_acc": "relative accuracy",
+            "ratio": "ratio",
         }[extraction_type]
 
+    def get_lim(self, extraction_type):
+        if extraction_type in ["id", "name"]:
+            return None, None
+        elif extraction_type in ["time", "k", "h", "samples", "l"]:
+            return None, None
+        elif extraction_type in ["acc", "ratio"]:
+            return 0, 1
+        elif extraction_type in ["rel_acc"]:
+            return -1, 1
+        else:
+            raise RuntimeError("Unknown extraction type {}".format(extraction_type))
+
     @staticmethod
-    def extract_benchmark_name(config):
+    def extract_benchmark_name(results_dir, data_dir, config):
         flat = load()
         return str(flat["lookup"][config["problem_id"]])
 
-    def extract_time(self, config):
+    def extract_time(self, results_dir, data_dir, config):
         timed_out = config.get("time_out", False)
         if not timed_out:
             durations = []
-            for message in get_log_messages(self.results_dir, config):
+            for message in get_log_messages(results_dir, config):
                 if message["type"] == "update":
                     durations.append(message["selection_time"] + message["solving_time"])
             return sum(durations)
         else:
             return "({})".format(config["time_limit"])
 
-    def extract_literals(self, config):
-        with open(os.path.join(self.data_dir, "{}.txt".format(str(config["problem_id"])))) as f:
+    def extract_literals(self, results_dir, data_dir, config):
+        with open(os.path.join(data_dir, "{}.txt".format(str(config["problem_id"])))) as f:
             s_problem = generator.import_synthetic_data(json.load(f))
         return s_problem.synthetic_problem.literals
 
-    def extract_accuracy(self, config):
+    def extract_accuracy(self, results_dir, data_dir, config):
         timed_out = config.get("time_out", False)
         if not timed_out:
             return config["approx_accuracy"]["1000"][0]["acc"]
         else:
             return None
 
-    def load_table(self):
-        problems = load_results(self.results_dir)
+    def extract_relative_accuracy(self, results_dir, data_dir, config):
+        return self.extract_accuracy(results_dir, data_dir, config) - self.extract_ratio(results_dir, data_dir, config)
+
+    def extract_ratio(self, results_dir, data_dir, config):
+        return config["approx_ratio"]["1000"][0]["ratio"]
+
+    def load_table(self, results_dir, data_dir):
+        problems = load_results(results_dir)
 
         unique_row_keys = set()
         unique_col_keys = set()
@@ -561,9 +580,9 @@ class TableMaker(object):
                 config["problem_id"] = problem_id
                 config["sample_size"] = sample_size
 
-                row_key = self.extract(self.row_key_type, config)
-                col_key = self.extract(self.col_key_type, config)
-                value = self.extract(self.value_type, config)
+                row_key = self.extract(self.row_key_type, results_dir, data_dir, config)
+                col_key = self.extract(self.col_key_type, results_dir, data_dir, config)
+                value = self.extract(self.value_type, results_dir, data_dir, config)
 
                 unique_row_keys.add(row_key)
                 unique_col_keys.add(col_key)
@@ -571,55 +590,72 @@ class TableMaker(object):
                     table[(row_key, col_key)] = []
                 table[(row_key, col_key)].append(value)
 
-        unique_row_keys = unique_row_keys
-        unique_col_keys = unique_col_keys
+        unique_row_keys = unique_row_keys | set(self.row_keys)
+        unique_col_keys = unique_col_keys | set(self.col_keys)
         row_key_is_int = all(isinstance(k, (int, long)) for k in unique_row_keys)
         self.row_keys = list(sorted(unique_row_keys, key=(int if row_key_is_int else str)))
         col_key_is_int = all(isinstance(k, (int, long)) for k in unique_col_keys)
         self.col_keys = list(sorted(unique_col_keys, key=(int if col_key_is_int else str)))
 
-        self.table = table
+        self.tables.append(table)
 
-        return self
+    def to_txt(self, i):
+        table = self.tables[i]
 
-    def __str__(self):
         def get_val(_key):
-            if _key not in self.table:
+            if _key not in table:
                 return ""
-            elif len(self.table[_key]) == 1:
-                return self.table[_key][0]
+            elif len(table[_key]) == 1:
+                return table[_key][0]
             else:
-                initial = self.table[_key][0]
-                for i in range(1, len(self.table[_key])):
-                    initial += self.table[_key][i]
-                return initial / len(self.table[_key])
+                initial = table[_key][0]
+                for i in range(1, len(table[_key])):
+                    initial += table[_key][i]
+                return initial / len(table[_key])
 
         lines = [self.delimiter.join([""] + [str(k) for k in self.col_keys])]
         for rk in self.row_keys:
             lines.append(self.delimiter.join([str(rk)] + [str(get_val((rk, ck))) for ck in self.col_keys]))
         return "\n".join(lines)
 
-    def plot_table(self, filename=None, aggregate=False, y_min=None, y_max=None, x_min=None, x_max=None):
+    def plot_table(self, filename=None, index=None, y_min=None, y_max=None, x_min=None, x_max=None):
         import rendering
         import numpy
 
-        def get_val(_key):
-            if _key not in self.table:
+        def get_val(_table, _key):
+            if _key not in _table:
                 return numpy.nan
             else:
-                return numpy.nanmean(self.table[_key])
+                return numpy.nanmean(_table[_key])
 
         scatter = rendering.ScatterData("", numpy.array(self.col_keys))
-        scatter.y_lim([y_min, y_max])
-        scatter.x_lim([x_min, x_max])
-        series = [numpy.array([get_val((rk, ck)) for ck in self.col_keys]) for rk in self.row_keys]
-        if aggregate:
-            series_array = numpy.array(series)
-            legend_name = "Average " + self.get_name(self.value_type)
-            scatter.add_data(legend_name, numpy.nanmean(series_array, 0), numpy.nanstd(numpy.array(series), 0))
+        y_lim = self.get_lim(self.value_type)
+        if y_min is not None:
+            y_lim[0] = y_min
+        if y_max is not None:
+            y_lim[1] = y_max
+        x_lim = self.get_lim(self.col_key_type)
+        if x_min is not None:
+            x_lim[0] = x_min
+        if x_max is not None:
+            x_lim[1] = x_max
+
+        scatter.y_lim(y_lim)
+        scatter.x_lim(x_lim)
+        series = [
+            [numpy.array([get_val(table, (rk, ck)) for ck in self.col_keys]) for rk in self.row_keys]
+            for table in self.tables
+        ]
+        if index is None:
+            for i in range(len(self.tables)):
+                series_array = numpy.array(series[i])
+                legend_name = "Average " + self.get_name(self.value_type)
+                scatter.add_data(legend_name, numpy.nanmean(series_array, 0), numpy.nanstd(numpy.array(series[i]), 0))
             # std_dev_series =
         else:
             for i in range(len(self.row_keys)):
-                scatter.add_data(self.row_keys[i], series[i])
-        scatter.plot(filename=filename, lines=True, log_x=False, log_y=False, label_y=self.get_name(self.value_type),
-                     label_x=self.get_name(self.col_key_type))
+                scatter.add_data(self.row_keys[i], series[index][i])
+
+        label_y = self.get_name(self.value_type).capitalize()
+        label_x = self.get_name(self.col_key_type).capitalize()
+        scatter.plot(filename=filename, lines=True, log_x=False, log_y=False, label_y=label_y, label_x=label_x)
