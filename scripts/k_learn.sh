@@ -1,7 +1,5 @@
 #!/bin/bash
 
-function join_by { local IFS="$1"; shift; echo "$*"; }
-
 cd ../smtlearn
 
 declare -a options=(1 2 3 4 5)
