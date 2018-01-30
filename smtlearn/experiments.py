@@ -87,7 +87,7 @@ def learn_synthetic(input_dir, prefix, results_dir, bias, plot=None, sample_coun
                 learner.add_observer(LoggingObserver(os.path.join(results_dir, log_file), seed, True, selection_strategy))
                 return learner.learn(domain, data, initial_indices)
 
-            result = learn_bottom_up(data, learn_f, 3, 1)
+            result, k, h = learn_bottom_up(data, learn_f, 3, 1)
         if result is None:
             flat[name][sample_count] = {"k": k, "h": h, "seed": seed, "bias": bias, "time_out": True}
         else:
