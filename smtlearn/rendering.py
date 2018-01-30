@@ -46,7 +46,8 @@ class ScatterData:
         iterator = itertools.cycle(mark.MarkerStyle.filled_markers)
         return [next(iterator) for _ in range(len(self.data))]
 
-    def render(self, ax, lines=True, log_x=True, log_y=True, label_x=None, label_y=None, legend_pos="lower right"):
+    def render(self, ax, lines=True, log_x=True, log_y=True, label_x=None, label_y=None, legend_pos="lower right",
+               x_ticks=None):
         plots = []
         colors = self.gen_colors()
         markers = self.gen_markers()
@@ -80,8 +81,13 @@ class ScatterData:
         if label_x is not None:
             ax.set_xlabel(label_x)
 
-    def plot(self, filename=None, **kwargs):
+        if x_ticks is not None:
+            ax.xaxis.set_ticks(x_ticks)
+
+    def plot(self, filename=None, size=None, **kwargs):
         fig = plt.figure()
+        if size is not None:
+            fig.set_size_inches(*size)
         self.render(fig.gca(), **kwargs)
         if filename is None:
             plt.show()

@@ -505,6 +505,7 @@ class TableMaker(object):
             "acc": self.extract_accuracy,
             "rel_acc": self.extract_relative_accuracy,
             "ratio": self.extract_ratio,
+            "time_out": self.extract_timeout,
         }[extraction_type](results_dir, data_dir, config)
 
     def get_name(self, extraction_type):
@@ -512,26 +513,35 @@ class TableMaker(object):
             "id": "Problem ID",
             "name": "Name",
             "time": "Time (s)",
-            "k": "k (# terms)",
-            "h": "h (# halfspaces)",
+            "k": "# terms",
+            "h": "# halfspaces",
             "samples": "# samples",
             "l": "# literals",
             "acc": "accuracy",
             "rel_acc": "relative accuracy",
             "ratio": "ratio",
+            "time_out": "Time-out ratio"
         }[extraction_type]
 
     def get_lim(self, extraction_type):
         if extraction_type in ["id", "name"]:
             return None, None
-        elif extraction_type in ["time", "k", "h", "samples", "l"]:
+        elif extraction_type in ["time"]:
+            return 0, None
+        elif extraction_type in ["k", "h", "samples", "l"]:
             return None, None
-        elif extraction_type in ["acc", "ratio"]:
+        elif extraction_type in ["acc", "ratio", "time_out"]:
             return 0, 1
         elif extraction_type in ["rel_acc"]:
             return -1, 1
         else:
             raise RuntimeError("Unknown extraction type {}".format(extraction_type))
+
+    def get_x_ticks(self):
+        if self.col_key_type in ["k", "h", "l"]:
+            return self.col_keys
+        else:
+            return None
 
     @staticmethod
     def extract_benchmark_name(results_dir, data_dir, config):
@@ -547,7 +557,7 @@ class TableMaker(object):
                     durations.append(message["selection_time"] + message["solving_time"])
             return sum(durations)
         else:
-            return "({})".format(config["time_limit"])
+            return None  # "({})".format(config["time_limit"])
 
     def extract_literals(self, results_dir, data_dir, config):
         with open(os.path.join(data_dir, "{}.txt".format(str(config["problem_id"])))) as f:
@@ -566,6 +576,9 @@ class TableMaker(object):
 
     def extract_ratio(self, results_dir, data_dir, config):
         return config["approx_ratio"]["1000"][0]["ratio"]
+
+    def extract_timeout(self, results_dir, data_dir, config):
+        return 1 if config.get("time_out", False) else 0
 
     def load_table(self, results_dir, data_dir):
         problems = load_results(results_dir)
@@ -626,7 +639,7 @@ class TableMaker(object):
             if _key not in _table:
                 return numpy.nan
             else:
-                return numpy.nanmean(_table[_key])
+                return numpy.nanmean([v if v is not None else numpy.nan for v in _table[_key]])
 
         scatter = rendering.ScatterData("", numpy.array(self.col_keys))
         y_lim = self.get_lim(self.value_type)
@@ -658,4 +671,5 @@ class TableMaker(object):
 
         label_y = self.get_name(self.value_type).capitalize()
         label_x = self.get_name(self.col_key_type).capitalize()
-        scatter.plot(filename=filename, lines=True, log_x=False, log_y=False, label_y=label_y, label_x=label_x)
+        scatter.plot(filename=filename, size=(8, 4), lines=True, log_x=False, log_y=False, label_y=label_y, label_x=label_x,
+                     x_ticks=self.get_x_ticks())
