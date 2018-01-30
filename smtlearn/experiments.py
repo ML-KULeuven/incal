@@ -36,6 +36,7 @@ def learn_synthetic(input_dir, prefix, results_dir, bias, plot=None, sample_coun
         synthetic_problem = data_set.synthetic_problem
         data = data_set.samples
         name = synthetic_problem.theory_problem.name
+        domain = synthetic_problem.theory_problem.domain
 
         if name not in flat:
             flat[name] = {}
@@ -54,7 +55,6 @@ def learn_synthetic(input_dir, prefix, results_dir, bias, plot=None, sample_coun
             initial_indices = None if non_inc else random.sample(list(range(sample_count)), 20)
             h = synthetic_problem.half_space_count
             k = synthetic_problem.formula_count
-            domain = synthetic_problem.theory_problem.domain
 
             if bias == "cnf" or bias == "dnf":
                 selection_strategy = RandomViolationsStrategy(10)
