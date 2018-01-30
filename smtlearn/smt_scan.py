@@ -482,6 +482,27 @@ def get_log_messages(results_dir, config, p_id=None, samples=None):
     return flats
 
 
+def get_all_log_messages(results_dir, config, p_id=None, samples=None):
+    id_key = "problem_id" if "problem_id" in config else "id"
+    sample_key = "sample_size" if "sample_size" in config else "samples"
+    problem_id = config[id_key] if p_id is None else p_id
+    sample_size = config[sample_key] if samples is None else samples
+    seed, k, h = (config[v] for v in ["seed", "k", "h"])
+
+    messages = dict()
+    for filename in os.listdir(results_dir):
+        pattern = r"{}_{}_{}_(\d+)_(\d+).learning_log.txt".format(problem_id, sample_size, seed)
+        match = re.match(pattern, filename)
+        if match and (int(match.group(1)) <= k or int(match.group(2)) <= h):
+            log_file_full = os.path.join(results_dir, filename)
+            flats = []
+            with open(log_file_full, "r") as f:
+                for line in f:
+                    flats.append(json.loads(line))
+            messages[(int(match.group(1)), int(match.group(2)))] = flats
+    return messages
+
+
 class TableMaker(object):
     def __init__(self, row_key_type, col_key_type, value_type, delimiter=None):
         self.row_key_type = row_key_type
@@ -491,13 +512,17 @@ class TableMaker(object):
         self.row_keys = []
         self.col_keys = []
         self.tables = []
+        self.indices = dict()
 
     def extract(self, extraction_type, results_dir, data_dir, config):
         # noinspection PyCallingNonCallable
         return {
             "id": lambda r, d, c: str(c["problem_id"]),
+            "index": self.extract_index,
             "name": self.extract_benchmark_name,
             "time": self.extract_time,
+            "full_time": self.extract_full_time,
+            "time_ratio": lambda r, d, c: self.extract_time(r, d, c) / self.extract_full_time(r, d, c),
             "k": lambda r, d, c: int(c[extraction_type]),
             "h": lambda r, d, c: int(c[extraction_type]),
             "samples": lambda r, d, c: int(c["sample_size"]),
@@ -506,13 +531,18 @@ class TableMaker(object):
             "rel_acc": self.extract_relative_accuracy,
             "ratio": self.extract_ratio,
             "time_out": self.extract_timeout,
+            "active": self.extract_active_set,
+            "active_ratio": self.extract_active_ratio,
         }[extraction_type](results_dir, data_dir, config)
 
     def get_name(self, extraction_type):
         return {
             "id": "Problem ID",
+            "index": "Problem index",
             "name": "Name",
             "time": "Time (s)",
+            "full_time": "Full time (s)",
+            "time_ratio": "Ratio time spent on final configuration over total time spent",
             "k": "# terms",
             "h": "# halfspaces",
             "samples": "# samples",
@@ -520,17 +550,19 @@ class TableMaker(object):
             "acc": "accuracy",
             "rel_acc": "relative accuracy",
             "ratio": "ratio",
-            "time_out": "Time-out ratio"
+            "time_out": "Time-out ratio",
+            "active": "Examples used",
+            "active_ratio": "Ratio of examples used",
         }[extraction_type]
 
     def get_lim(self, extraction_type):
         if extraction_type in ["id", "name"]:
             return None, None
-        elif extraction_type in ["time"]:
+        elif extraction_type in ["time", "full_time", "active", "index"]:
             return 0, None
         elif extraction_type in ["k", "h", "samples", "l"]:
             return None, None
-        elif extraction_type in ["acc", "ratio", "time_out"]:
+        elif extraction_type in ["acc", "ratio", "time_out", "active_ratio", "time_ratio"]:
             return 0, 1
         elif extraction_type in ["rel_acc"]:
             return -1, 1
@@ -559,6 +591,18 @@ class TableMaker(object):
         else:
             return None  # "({})".format(config["time_limit"])
 
+    def extract_full_time(self, results_dir, data_dir, config):
+        timed_out = config.get("time_out", False)
+        if not timed_out:
+            durations = []
+            for key, messages in get_all_log_messages(results_dir, config).items():
+                for message in messages:
+                    if message["type"] == "update":
+                        durations.append(message["selection_time"] + message["solving_time"])
+            return sum(durations)
+        else:
+            return None  # "({})".format(config["time_limit"])
+
     def extract_literals(self, results_dir, data_dir, config):
         with open(os.path.join(data_dir, "{}.txt".format(str(config["problem_id"])))) as f:
             s_problem = generator.import_synthetic_data(json.load(f))
@@ -579,6 +623,30 @@ class TableMaker(object):
 
     def extract_timeout(self, results_dir, data_dir, config):
         return 1 if config.get("time_out", False) else 0
+
+    def extract_active_set(self, results_dir, data_dir, config):
+        timed_out = config.get("time_out", False)
+        if not timed_out:
+            examples = 20
+            for message in get_log_messages(results_dir, config):
+                if message["type"] == "update":
+                    examples += min(10, len(message["indices"]))
+            return examples
+        else:
+            return None  # "({})".format(config["time_limit"])
+
+    def extract_active_ratio(self, results_dir, data_dir, config):
+        timed_out = config.get("time_out", False)
+        if not timed_out:
+            return self.extract_active_set(results_dir, data_dir, config) / int(config["sample_size"])
+        else:
+            return None  # "({})".format(config["time_limit"])
+
+    def extract_index(self, results_dir, data_dir, config):
+        p_id = str(config["problem_id"])
+        if p_id not in self.indices:
+            self.indices[p_id] = len(self.indices)
+        return self.indices[p_id]
 
     def load_table(self, results_dir, data_dir):
         problems = load_results(results_dir)
@@ -612,23 +680,33 @@ class TableMaker(object):
 
         self.tables.append(table)
 
-    def to_txt(self, i):
+    def to_txt(self, i, aggregate=False):
+        import numpy
+
         table = self.tables[i]
 
         def get_val(_key):
+            value = None
             if _key not in table:
-                return ""
+                value = ""
             elif len(table[_key]) == 1:
-                return table[_key][0]
+                value = table[_key][0]
             else:
                 initial = table[_key][0]
                 for i in range(1, len(table[_key])):
                     initial += table[_key][i]
-                return initial / len(table[_key])
+                value = initial / len(table[_key])
+            return value if value is not None else numpy.nan
 
         lines = [self.delimiter.join([""] + [str(k) for k in self.col_keys])]
-        for rk in self.row_keys:
-            lines.append(self.delimiter.join([str(rk)] + [str(get_val((rk, ck))) for ck in self.col_keys]))
+        if aggregate:
+            name = "Average " + self.get_name(self.value_type)
+            averages = [numpy.nanmean(numpy.array([get_val((rk, ck)) for rk in self.row_keys])) for ck in self.col_keys]
+            deviation = [numpy.nanstd(numpy.array([get_val((rk, ck)) for rk in self.row_keys])) for ck in self.col_keys]
+            lines.append(self.delimiter.join([str(name)] + ["{} +/- {}".format(a, d) for a, d in zip(averages, deviation)]))
+        else:
+            for rk in self.row_keys:
+                lines.append(self.delimiter.join([str(rk)] + [str(get_val((rk, ck))) for ck in self.col_keys]))
         return "\n".join(lines)
 
     def plot_table(self, filename=None, index=None, y_min=None, y_max=None, x_min=None, x_max=None):

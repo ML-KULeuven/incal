@@ -30,6 +30,8 @@ if __name__ == "__main__":
         table_subparsers = table_parser.add_subparsers(dest="command")
         table_print_parser = table_subparsers.add_parser("print", help="Print the table")
         table_print_parser.add_argument("-d", "--delimiter", default="\t", help="Specify the delimiter (default=tab)")
+        table_print_parser.add_argument("-a", "--aggregate", default=False, action="store_true",
+                                       help="Aggregate the rows in the plot")
 
         table_plot_parser = table_subparsers.add_parser("plot", help="Plot the table")
         table_plot_parser.add_argument("-a", "--aggregate", default=False, action="store_true",
@@ -99,7 +101,7 @@ if __name__ == "__main__":
                 table.load_table(args.dirs[2 * i], args.dirs[2 * i + 1])
             if args.command == "print":
                 table.delimiter = args.delimiter
-                print(table.to_txt(0))
+                print(table.to_txt(0, args.aggregate))
             elif args.command == "plot":
                 table.plot_table(args.output, None if args.aggregate else 0, args.y_min, args.y_max, args.x_min, args.x_max)
             else:
