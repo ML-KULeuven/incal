@@ -13,10 +13,12 @@ from inc_logging import LoggingObserver
 from incremental_learner import AllViolationsStrategy, RandomViolationsStrategy
 from k_cnf_smt_learner import KCnfSmtLearner
 from k_dnf_smt_learner import KDnfSmtLearner
+from parameter_free_learner import learn_bottom_up
 from timeout import timeout
 
 
-def learn_synthetic(input_dir, prefix, results_dir, bias, plot=None, sample_count=None, time_out=None, non_inc=False):
+def learn_synthetic(input_dir, prefix, results_dir, bias, plot=None, sample_count=None, time_out=None, non_inc=False,
+                    parameter_free=False):
     input_dir = os.path.abspath(input_dir)
     data_sets = list(import_synthetic_data_files(input_dir, prefix))
 
@@ -48,30 +50,44 @@ def learn_synthetic(input_dir, prefix, results_dir, bias, plot=None, sample_coun
         else:
             sample_count = len(data)
 
-        initial_indices = None if non_inc else random.sample(list(range(sample_count)), 20)
-        h = synthetic_problem.half_space_count
-        k = synthetic_problem.formula_count
-        domain = synthetic_problem.theory_problem.domain
+        if not parameter_free:
+            initial_indices = None if non_inc else random.sample(list(range(sample_count)), 20)
+            h = synthetic_problem.half_space_count
+            k = synthetic_problem.formula_count
+            domain = synthetic_problem.theory_problem.domain
 
-        if bias == "cnf" or bias == "dnf":
-            selection_strategy = RandomViolationsStrategy(10)
-            if bias == "cnf":
-                learner = KCnfSmtLearner(k, h, selection_strategy)
-            elif bias == "dnf":
-                learner = KDnfSmtLearner(k, h, selection_strategy)
+            if bias == "cnf" or bias == "dnf":
+                selection_strategy = RandomViolationsStrategy(10)
+                if bias == "cnf":
+                    learner = KCnfSmtLearner(k, h, selection_strategy)
+                elif bias == "dnf":
+                    learner = KDnfSmtLearner(k, h, selection_strategy)
 
-            if plot is not None and plot and synthetic_problem.bool_count == 0 and synthetic_problem.real_count == 2:
-                import plotting
-                feats = domain.real_vars
-                plots_dir = os.path.join(results_dir, name)
-                exp_id = "{}_{}_{}".format(learner.name, sample_count, seed)
-                learner.add_observer(plotting.PlottingObserver(data, plots_dir, exp_id, *feats))
-            log_file = "{}_{}_{}_{}_{}.learning_log.txt".format(name, sample_count, seed, k, h)
-            learner.add_observer(LoggingObserver(os.path.join(results_dir, log_file), seed, True, selection_strategy))
+                if plot is not None and plot and synthetic_problem.bool_count == 0 and synthetic_problem.real_count == 2:
+                    import plotting
+                    feats = domain.real_vars
+                    plots_dir = os.path.join(results_dir, name)
+                    exp_id = "{}_{}_{}".format(learner.name, sample_count, seed)
+                    learner.add_observer(plotting.PlottingObserver(data, plots_dir, exp_id, *feats))
+                log_file = "{}_{}_{}_{}_{}.learning_log.txt".format(name, sample_count, seed, k, h)
+                learner.add_observer(LoggingObserver(os.path.join(results_dir, log_file), seed, True, selection_strategy))
+            else:
+                raise RuntimeError("Unknown bias {}".format(bias))
+
+            result = timeout(learner.learn, [domain, data, initial_indices], duration=time_out)
         else:
-            raise RuntimeError("Unknown bias {}".format(bias))
+            def learn_f(_data, _k, _h):
+                selection_strategy = RandomViolationsStrategy(10)
+                if bias == "cnf":
+                    learner = KCnfSmtLearner(_k, _h, selection_strategy)
+                elif bias == "dnf":
+                    learner = KDnfSmtLearner(_k, _h, selection_strategy)
+                initial_indices = None if non_inc else random.sample(list(range(sample_count)), 20)
+                log_file = "{}_{}_{}_{}_{}.learning_log.txt".format(name, sample_count, seed, _k, _h)
+                learner.add_observer(LoggingObserver(os.path.join(results_dir, log_file), seed, True, selection_strategy))
+                return learner.learn(domain, data, initial_indices)
 
-        result = timeout(learner.learn, [domain, data, initial_indices], duration=time_out)
+            result = learn_bottom_up(data, learn_f, 3, 1)
         if result is None:
             flat[name][sample_count] = {"k": k, "h": h, "seed": seed, "bias": bias, "time_out": True}
         else:
@@ -93,6 +109,7 @@ if __name__ == "__main__":
     parser.add_argument("-s", "--samples", default=None, type=int)
     parser.add_argument("-t", "--time_out", default=None, type=int)
     parser.add_argument("-a", "--non_incremental", default=False, action="store_true")
+    parser.add_argument("-f", "--parameter_free", default=False, action="store_true")
     parsed = parser.parse_args()
     learn_synthetic(parsed.input_dir, parsed.prefix, parsed.output_dir, parsed.bias, parsed.plot, parsed.samples,
-                    parsed.time_out, parsed.non_incremental)
+                    parsed.time_out, parsed.non_incremental, parsed.parameter_free)
