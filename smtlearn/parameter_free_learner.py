@@ -2,6 +2,7 @@ import heapq
 
 import time
 from z3types import Z3Exception
+import pysmt
 
 
 class ParameterFrontier(object):
@@ -45,6 +46,8 @@ def learn_bottom_up(data, learn_f, w_k, w_h, init_k=1, init_h=0, max_k=None, max
             solution = learn_f(data, k, h)
             print("Found solution after {:.2f}s".format(time.time() - start))
         except Z3Exception:
+            print("Found no solution after {:.2f}s".format(time.time() - start))
+        except pysmt.exceptions.InternalSolverError:
             print("Found no solution after {:.2f}s".format(time.time() - start))
         if max_k is None or k + 1 <= max_k:
             frontier.push(k + 1, h)
