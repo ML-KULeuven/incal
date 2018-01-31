@@ -329,7 +329,7 @@ def learn(sample_count, log_dir, learn_all=False, learn_dnf=False):
     seed = hash(time.time())
     random.seed(seed)
     for name, props in files.items():
-        if props["loaded"] and props["var_count"] < 20 and not has_equals(props) and has_disjunctions(props) and \
+        if props["loaded"] and props["var_count"] < 10 and not has_equals(props) and has_disjunctions(props) and \
                 ratio_dict[name]["finite"] and 0.2 <= ratio_dict[name]["ratio"] <= 0.8:
             with open(get_problem_file(props["id"]), "r") as f:
                 target_problem = problem.import_problem(json.load(f))

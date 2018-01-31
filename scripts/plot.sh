@@ -25,7 +25,7 @@ python api.py table id h time ../output/synthetic/hh/summary/ ../synthetic/hh/al
 python api.py table id samples time_ratio ../output/synthetic/pf/ ../synthetic/pf/ print -a
 
 # Print benchmark
-python api.py table id constant full_time ../output/benchmark/10000/ ../demo/cache/ print -a
-python api.py table id constant time ../output/benchmark/10000/ ../demo/cache/ print -a
-python api.py table id constant time_ratio ../output/benchmark/10000/ ../demo/cache/ print -a
-python api.py table id constant acc ../output/benchmark/10000/ ../demo/cache/ print -a
+python api.py table id constant full_time ../output/benchmark/1000/ ../demo/cache/ print -a
+python api.py table id constant time ../output/benchmark/1000/ ../demo/cache/ print -a
+python api.py table id constant time_ratio ../output/benchmark/1000/ ../demo/cache/ print -a
+python api.py table id constant acc ../output/benchmark/1000/ ../demo/cache/ print -a

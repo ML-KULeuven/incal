@@ -80,6 +80,12 @@ def calculate_accuracy_approx(domain, target_formula, learned_formula, samples):
     return accuracy
 
 
+def adapt_domain_multiple(target_problem, new_bounds):
+    domain = target_problem.domain
+    adapted_domain = problem.Domain(domain.variables, domain.var_types, new_bounds)
+    return problem.Problem(adapted_domain, target_problem.theory, target_problem.name)
+
+
 def get_problem(data_dir, problem_id):
     try:
         with open(os.path.join(data_dir, "{}.txt".format(str(problem_id)))) as f:
@@ -90,7 +96,15 @@ def get_problem(data_dir, problem_id):
         with open(os.path.join(data_dir, "problems", "{}.txt".format(str(problem_id)))) as f:
             import generator
             theory_problem = problem.import_problem(json.load(f))
-        return theory_problem
+
+        with open(os.path.join(data_dir, "summary.json"), "r") as f:
+            flat = json.load(f)
+        ratio_dict = flat["ratios"]
+        lookup = flat["lookup"]
+
+        adapted_problem = adapt_domain_multiple(theory_problem, ratio_dict[lookup[problem_id]]["bounds"])
+
+        return adapted_problem
 
 
 def add_accuracy(results_dir, data_dir=None, acc_sample_size=None, recompute=False):
