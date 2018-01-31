@@ -80,19 +80,32 @@ def calculate_accuracy_approx(domain, target_formula, learned_formula, samples):
     return accuracy
 
 
+def get_problem(data_dir, problem_id):
+    try:
+        with open(os.path.join(data_dir, "{}.txt".format(str(problem_id)))) as f:
+            import generator
+            s_problem = generator.import_synthetic_data(json.load(f))
+        return s_problem.synthetic_problem.theory_problem
+    except IOError:
+        with open(os.path.join(data_dir, "problems", "{}.txt".format(str(problem_id)))) as f:
+            import generator
+            theory_problem = problem.import_problem(json.load(f))
+        return theory_problem
+
+
 def add_accuracy(results_dir, data_dir=None, acc_sample_size=None, recompute=False):
     results_flat = load_results(results_dir)
 
     for problem_id in results_flat:
 
         if data_dir is not None:
-            with open(os.path.join(data_dir, "{}.txt".format(str(problem_id)))) as f:
-                import generator
-                s_problem = generator.import_synthetic_data(json.load(f))
-            target_formula = s_problem.synthetic_problem.theory_problem.theory
-            domain = s_problem.synthetic_problem.theory_problem.domain
+            theory_problem = get_problem(data_dir, problem_id)
+            domain = theory_problem.domain
+            target_formula = theory_problem.theory
+            print(problem_id)
+            print(pretty_print(target_formula))
         else:
-            raise RuntimeError("Not yet implemented")
+            raise RuntimeError("Data directory missing")
 
         for sample_size in results_flat[problem_id]:
             config = results_flat[problem_id][sample_size]
@@ -102,6 +115,9 @@ def add_accuracy(results_dir, data_dir=None, acc_sample_size=None, recompute=Fal
                 for message in get_log_messages(results_dir, config, p_id=problem_id, samples=sample_size):
                     if message["type"] == "update":
                         learned_formula = parse.nested_to_smt(message["theory"])
+
+                print(pretty_print(learned_formula))
+                print()
 
                 if acc_sample_size is None:
                     if recompute or "exact_accuracy" not in config:
@@ -143,13 +159,11 @@ def add_ratio(results_dir, data_dir=None, ratio_sample_size=None, recompute=Fals
 
     for problem_id in results_flat:
         if data_dir is not None:
-            with open(os.path.join(data_dir, "{}.txt".format(str(problem_id)))) as f:
-                import generator
-                s_problem = generator.import_synthetic_data(json.load(f))
-            formula = s_problem.synthetic_problem.theory_problem.theory
-            domain = s_problem.synthetic_problem.theory_problem.domain
+            theory_problem = get_problem(data_dir, problem_id)
+            domain = theory_problem.domain
+            formula = theory_problem.theory
         else:
-            raise RuntimeError("Not yet implemented")
+            raise RuntimeError("Data directory missing")
 
         seed = hash(time.time())
         random.seed(seed)

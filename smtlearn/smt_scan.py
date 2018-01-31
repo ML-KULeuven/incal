@@ -329,7 +329,7 @@ def learn(sample_count, log_dir, learn_all=False, learn_dnf=False):
     seed = hash(time.time())
     random.seed(seed)
     for name, props in files.items():
-        if props["loaded"] and props["var_count"] < 10 and not has_equals(props) and has_disjunctions(props) and \
+        if props["loaded"] and props["var_count"] < 20 and not has_equals(props) and has_disjunctions(props) and \
                 ratio_dict[name]["finite"] and 0.2 <= ratio_dict[name]["ratio"] <= 0.8:
             with open(get_problem_file(props["id"]), "r") as f:
                 target_problem = problem.import_problem(json.load(f))
@@ -533,6 +533,7 @@ class TableMaker(object):
             "time_out": self.extract_timeout,
             "active": self.extract_active_set,
             "active_ratio": self.extract_active_ratio,
+            "constant": lambda r, d, c: 1,
         }[extraction_type](results_dir, data_dir, config)
 
     def get_name(self, extraction_type):
@@ -553,10 +554,11 @@ class TableMaker(object):
             "time_out": "Time-out ratio",
             "active": "Examples used",
             "active_ratio": "Ratio of examples used",
+            "constant": "Constant",
         }[extraction_type]
 
     def get_lim(self, extraction_type):
-        if extraction_type in ["id", "name"]:
+        if extraction_type in ["id", "name", "constant"]:
             return None, None
         elif extraction_type in ["time", "full_time", "active", "index"]:
             return 0, None
@@ -688,7 +690,7 @@ class TableMaker(object):
         def get_val(_key):
             value = None
             if _key not in table:
-                value = ""
+                value = None
             elif len(table[_key]) == 1:
                 value = table[_key][0]
             else:
