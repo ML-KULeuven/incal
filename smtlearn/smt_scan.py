@@ -307,7 +307,7 @@ def learn_formula(problem_id, domain, h, data, seed, log_dir, learn_all=False, l
         print("Learned theory:\n{}".format(pretty_print(learned_theory)))
         return learned_theory
 
-    phi, k, h = learn_bottom_up(data, learn_inc, 3, 1)
+    phi, k, h = learn_bottom_up(data, learn_inc, 1, 1)
 
     overview = os.path.join(log_dir, "problems.txt")
     if not os.path.isfile(overview):
