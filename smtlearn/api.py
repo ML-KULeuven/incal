@@ -97,8 +97,8 @@ if __name__ == "__main__":
         elif args.mode == "table":
             import smt_scan
             table = smt_scan.TableMaker(args.row_key, args.col_key, args.value)
-            for i in range(int(math.floor(len(args.dirs) / 2))):
-                table.load_table(args.dirs[2 * i], args.dirs[2 * i + 1])
+            for i in range(int(math.floor(len(args.dirs) / 3))):
+                table.load_table(args.dirs[3 * i], args.dirs[3 * i + 1], args.dirs[3 * i + 2])
             if args.command == "print":
                 table.delimiter = args.delimiter
                 print(table.to_txt(0, args.aggregate))

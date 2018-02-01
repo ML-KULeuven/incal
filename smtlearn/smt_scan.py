@@ -307,7 +307,7 @@ def learn_formula(problem_id, domain, h, data, seed, log_dir, learn_all=False, l
         print("Learned theory:\n{}".format(pretty_print(learned_theory)))
         return learned_theory
 
-    phi, k, h = learn_bottom_up(data, learn_inc, 1, 1, init_h=h, max_h=h)
+    phi, k, h = learn_bottom_up(data, learn_inc, 3, 1)
 
     overview = os.path.join(log_dir, "problems.txt")
     if not os.path.isfile(overview):
@@ -564,8 +564,10 @@ class TableMaker(object):
             return 0, None
         elif extraction_type in ["k", "h", "samples", "l"]:
             return None, None
-        elif extraction_type in ["acc", "ratio", "time_out", "active_ratio", "time_ratio"]:
+        elif extraction_type in ["ratio", "time_out", "active_ratio", "time_ratio"]:
             return 0, 1
+        elif extraction_type in ["acc"]:
+            return 0.5, 1
         elif extraction_type in ["rel_acc"]:
             return -1, 1
         else:
@@ -650,12 +652,14 @@ class TableMaker(object):
             self.indices[p_id] = len(self.indices)
         return self.indices[p_id]
 
-    def load_table(self, results_dir, data_dir):
+    def load_table(self, results_dir, data_dir, name=None):
         problems = load_results(results_dir)
 
         unique_row_keys = set()
         unique_col_keys = set()
         table = dict()
+
+        table["name"] = name
 
         for problem_id in problems:
             for sample_size in problems[problem_id]:
@@ -743,6 +747,8 @@ class TableMaker(object):
             for i in range(len(self.tables)):
                 series_array = numpy.array(series[i])
                 legend_name = "Average " + self.get_name(self.value_type)
+                if "name" in self.tables[i]:
+                    legend_name += " " + self.tables[i]["name"]
                 scatter.add_data(legend_name, numpy.nanmean(series_array, 0), numpy.nanstd(numpy.array(series[i]), 0))
             # std_dev_series =
         else:
