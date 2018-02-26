@@ -1,8 +1,8 @@
 cd ../smtlearn
 
 # Plot samples
-python api.py table id samples acc ../output/synthetic/ss/summary/ ../synthetic/ss/10000/ INCAL ../output/synthetic/ss/esummary_1000/ ../synthetic/ss/10000/ "non-incremental INCAL" plot -a -o ../../ijcai18/figures/s_inc_acc.pdf
-python api.py table id samples time ../output/synthetic/ss/summary/ ../synthetic/ss/10000/ INCAL ../output/synthetic/ss/esummary_1000/ ../synthetic/ss/10000/ "non-incremental INCAL" plot -a -o ../../ijcai18/figures/s_inc_time.pdf
+python api.py table id samples acc ../output/synthetic/ss/summary/ ../synthetic/ss/10000/ INCAL ../output/synthetic/ss/esummary_1000/ ../synthetic/ss/10000/ "non-incremental" plot -a -o ../../ijcai18/figures/s_inc_acc.pdf
+python api.py table id samples time ../output/synthetic/ss/summary/ ../synthetic/ss/10000/ INCAL ../output/synthetic/ss/esummary_1000/ ../synthetic/ss/10000/ "non-incremental" plot -a -o ../../ijcai18/figures/s_inc_time.pdf
 python api.py table id samples active ../output/synthetic/ss/summary/ ../synthetic/ss/all/ INCAL plot -a -o ../../ijcai18/figures/s_inc_active.pdf
 python api.py table id samples active_ratio ../output/synthetic/ss/summary/ ../synthetic/ss/all/ INCAL plot -a -o ../../ijcai18/figures/s_inc_active_ratio.pdf
 
