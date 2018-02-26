@@ -525,6 +525,8 @@ class TableMaker(object):
             "time_ratio": lambda r, d, c: self.extract_time(r, d, c) / self.extract_full_time(r, d, c),
             "k": lambda r, d, c: int(c[extraction_type]),
             "h": lambda r, d, c: int(c[extraction_type]),
+            "synth_k": self.extract_synth_k,
+            "synth_h": self.extract_synth_h,
             "samples": lambda r, d, c: int(c["sample_size"]),
             "l": self.extract_literals,
             "acc": self.extract_accuracy,
@@ -541,11 +543,13 @@ class TableMaker(object):
             "id": "Problem ID",
             "index": "Problem index",
             "name": "Name",
-            "time": "Time (s)",
+            "time": "time (s)",
             "full_time": "Full time (s)",
             "time_ratio": "Ratio time spent on final configuration over total time spent",
             "k": "# terms",
             "h": "# halfspaces",
+            "synth_k": "# terms",
+            "synth_h": "# halfspaces",
             "samples": "# samples",
             "l": "# literals",
             "acc": "accuracy",
@@ -611,6 +615,16 @@ class TableMaker(object):
         with open(os.path.join(data_dir, "{}.txt".format(str(config["problem_id"])))) as f:
             s_problem = generator.import_synthetic_data(json.load(f))
         return s_problem.synthetic_problem.literals
+
+    def extract_synth_k(self, results_dir, data_dir, config):
+        with open(os.path.join(data_dir, "{}.txt".format(str(config["problem_id"])))) as f:
+            s_problem = generator.import_synthetic_data(json.load(f))
+        return (s_problem.synthetic_problem.k - self.extract("k", results_dir, data_dir, config)) / s_problem.synthetic_problem.k
+
+    def extract_synth_h(self, results_dir, data_dir, config):
+        with open(os.path.join(data_dir, "{}.txt".format(str(config["problem_id"])))) as f:
+            s_problem = generator.import_synthetic_data(json.load(f))
+        return (s_problem.synthetic_problem.h - self.extract("h", results_dir, data_dir, config)) / s_problem.synthetic_problem.h
 
     def extract_accuracy(self, results_dir, data_dir, config):
         timed_out = config.get("time_out", False)
