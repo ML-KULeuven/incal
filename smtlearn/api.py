@@ -57,7 +57,7 @@ if __name__ == "__main__":
         gen_parser.add_argument("--bias", default="cnf")
         gen_parser.add_argument("-k", "--k", default=3, type=int)
         gen_parser.add_argument("-l", "--literals", default=4, type=int)
-        gen_parser.add_argument("--h", default=7, type=int)
+        gen_parser.add_argument("--half_spaces", default=7, type=int)
         gen_parser.add_argument("-s", "--samples", default=1000, type=int)
         gen_parser.add_argument("--ratio", default=90, type=int)
         gen_parser.add_argument("-p", "--plot_dir", default=None)
