@@ -123,6 +123,23 @@ def bool_xor_problem():
     return Problem(domain, theory, "2xor")
 
 
+def ice_cream_problem():
+    variables = ["chocolate", "banana", "weekend"]
+    chocolate, banana, weekend = variables
+    var_types = {chocolate: REAL, banana: REAL, weekend: BOOL}
+    var_domains = {chocolate: (0, 1), banana: (0, 1)}
+    domain = Domain(variables, var_types, var_domains)
+
+    chocolate, banana, weekend = (domain.get_symbol(v) for v in variables)
+    theory = (chocolate < 0.650)\
+             & (banana < 0.550)\
+             & (chocolate + 0.7 * banana <= 0.700)\
+             & (chocolate + 1.2 * banana <= 0.750)\
+             & (~weekend | (chocolate + 0.7 * banana <= 0.340))
+
+    return Problem(domain, theory, "ice_cream")
+
+
 def evaluate_assignment(problem, assignment):
     # substitution = {problem.domain.get_symbol(v): val for v, val in assignment.items()}
     # return problem.theory.substitute(substitution).simplify().is_true()
@@ -298,10 +315,13 @@ def draw_border_points(feat_x, feat_y, data, border_indices, name):
 
 def learn_parameter_free(problem, data, seed):
     def learn_inc(_data, _k, _h):
-        learner = KDnfSmtLearner(_k, _h, RandomViolationsStrategy(10))
+        learner = KCnfSmtLearner(_k, _h, RandomViolationsStrategy(10))
         dir_name = "../output/{}".format(problem.name)
         img_name = "{}_{}_{}_{}_{}".format(learner.name, _k, _h, len(data), seed)
-        learner.add_observer(plotting.PlottingObserver(data, dir_name, img_name, "x", "y"))
+        learner.add_observer(plotting.PlottingObserver(data, dir_name + "/week", img_name, "chocolate", "banana",
+                                                       condition=lambda instance, _l: not instance["weekend"]))
+        learner.add_observer(plotting.PlottingObserver(data, dir_name + "/weekend", img_name, "chocolate", "banana",
+                                                       condition=lambda instance, _l: instance["weekend"]))
 
         initial_indices = random.sample(list(range(len(data))), 20)
 
@@ -310,7 +330,7 @@ def learn_parameter_free(problem, data, seed):
         print("Learned theory:\n{}".format(pretty_print(learned_theory)))
         return learned_theory
 
-    learn_bottom_up(data, learn_inc, 1, 1)
+    learn_bottom_up(data, learn_inc, 1, 1, 3, 3)
 
 
 def main():
@@ -318,7 +338,7 @@ def main():
     seed = 65
     random.seed(65)
     # problem = simple_univariate_problem()
-    problem = simple_checker_problem()
+    # problem = simple_checker_problem()
     # problem = simple_checker_problem_cnf()
     # problem = shared_hyperplane_problem()
     # problem = checker_problem()
@@ -330,6 +350,7 @@ def main():
     #     ({"x": Real(0.1), "y": Real(0.9)}, False),
     #     ({"x": Real(0.9), "y": Real(0.1)}, False),
     # ]
+    problem = ice_cream_problem()
 
     sample_time_start = time.time()
     data = sample(problem, n, seed=seed)
@@ -357,7 +378,7 @@ def main():
     # learner = KDnfSmtLearner(8, 2)
     # learner = GreedyMaxRuleLearner(8)
     # learner = GreedyMilpRuleLearner(4, 4)
-    learner = KCnfSmtLearner(2, 2, RandomViolationsStrategy(20))
+    learner = KCnfSmtLearner(5, 5, RandomViolationsStrategy(20))
 
     # if isinstance(learner, KDNFLearner):
     #     learner_name = "dnf"

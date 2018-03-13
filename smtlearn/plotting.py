@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 
 
 class PlottingObserver(IncrementalObserver):
-    def __init__(self, data, directory, name, feat_x, feat_y):
+    def __init__(self, data, directory, name, feat_x, feat_y, condition=None):
         self.data = data
         self.directory = directory
 
@@ -21,6 +21,7 @@ class PlottingObserver(IncrementalObserver):
         self.feat_x = feat_x
         self.feat_y = feat_y
         self.iteration = 0
+        self.condition = condition
 
     def observe_initial(self, initial_indices):
         self.all_active = self.all_active.union(initial_indices)
@@ -31,7 +32,8 @@ class PlottingObserver(IncrementalObserver):
         self.iteration += 1
         learned_labels = [SmtChecker(instance).check(theory) for instance, _ in self.data]
         name = "{}{}{}_{}".format(self.directory, os.path.sep, self.name, self.iteration)
-        draw_points(self.feat_x, self.feat_y, self.data, learned_labels, name, self.all_active, new_active_indices)
+        draw_points(self.feat_x, self.feat_y, self.data, learned_labels, name, self.all_active, new_active_indices,
+                    condition=self.condition)
         self.all_active = self.all_active.union(new_active_indices)
 
 
@@ -65,7 +67,7 @@ def draw_border_points(feat_x, feat_y, data, border_indices, name):
     plt.gcf().clear()
 
 
-def draw_points(feat_x, feat_y, data, learned_labels, name, active_indices, new_active_indices, hyperplanes=None):
+def draw_points(feat_x, feat_y, data, learned_labels, name, active_indices, new_active_indices, hyperplanes=None, condition=None):
     points = []
 
     for i in range(len(data)):
@@ -73,17 +75,31 @@ def draw_points(feat_x, feat_y, data, learned_labels, name, active_indices, new_
         point = (float(instance[feat_x]), float(instance[feat_y]))
         correct = learned_labels[i] == label
         status = "active" if i in active_indices else ("new_active" if i in new_active_indices else "excluded")
-        points.append((label, correct, status, point))
+        if condition is None or condition(instance, label):
+            points.append((label, correct, status, point))
 
-    label_markers = {True: "o", False: "x"}
-    correctness_colors = {True: "green", False: "red"}
+    def get_color(_l, _c, _s):
+        if _s == "active":
+            return "black"
+        return "green" if _l == _c else "red"
+
+    def get_marker(_l, _c, _s):
+        # if _s == "active":
+        #     return "v"
+        return "o" if _l else "x"
+
+    def get_alpha(_l, _c, _s):
+        if _s == "active":
+            return 0.5
+        elif _s == "new_active":
+            return 1
+        elif _s == "excluded":
+            return 0.1
+
     for label in [True, False]:
         for correct in [True, False]:
-            for status, alpha in [("active", 1), ("new_active", 1), ("excluded", 0.2)]:
-                marker = label_markers[label]
-                color = correctness_colors[correct]
-                if status == "active":
-                    color = "black"
+            for status in ["active", "new_active", "excluded"]:
+                marker, color, alpha = [f(label, correct, status) for f in (get_marker, get_color, get_alpha)]
                 selection = [p for l, c, s, p in points if l == label and c == correct and s == status]
                 if len(selection) > 0:
                     plt.scatter(*zip(*selection), c=color, marker=marker, alpha=alpha)
