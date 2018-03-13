@@ -112,7 +112,7 @@ if __name__ == "__main__":
         elif args.mode == "generate":
             from generator import generate_random
             generate_random(args.data_sets, args.prefix, args.bool_count, args.real_count, args.bias, args.k,
-                            args.literals, args.h, args.samples, args.ratio, args.data_dir, args.plot_dir)
+                            args.literals, args.half_spaces, args.samples, args.ratio, args.data_dir, args.plot_dir)
         elif args.mode == "migrate":
             import migrate
             if args.type == "fix":
