@@ -61,6 +61,7 @@ if __name__ == "__main__":
         gen_parser.add_argument("-s", "--samples", default=1000, type=int)
         gen_parser.add_argument("--ratio", default=90, type=int)
         gen_parser.add_argument("-p", "--plot_dir", default=None)
+        gen_parser.add_argument("-e", "--errors", default=0, type=int)
 
         migration_parser = subparsers.add_parser("migrate", help="Migrate files to newer or extended versions")
         migration_subparsers = migration_parser.add_subparsers(dest="type")
@@ -112,7 +113,8 @@ if __name__ == "__main__":
         elif args.mode == "generate":
             from generator import generate_random
             generate_random(args.data_sets, args.prefix, args.bool_count, args.real_count, args.bias, args.k,
-                            args.literals, args.half_spaces, args.samples, args.ratio, args.data_dir, args.plot_dir)
+                            args.literals, args.half_spaces, args.samples, args.ratio, args.errors, args.data_dir,
+                            args.plot_dir)
         elif args.mode == "migrate":
             import migrate
             if args.type == "fix":

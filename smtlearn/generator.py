@@ -25,12 +25,13 @@ class InsufficientBalanceError(RuntimeError):
 
 
 class SyntheticProblem(object):
-    def __init__(self, theory_problem, cnf_or_dnf, formula_count, terms_per_formula, half_space_count):
+    def __init__(self, theory_problem, cnf_or_dnf, formula_count, terms_per_formula, half_space_count, error_percent=0):
         self.theory_problem = theory_problem
         self.cnf_or_dnf = cnf_or_dnf
         self.formula_count = formula_count
         self.terms_per_formula = terms_per_formula
         self.half_space_count = half_space_count
+        self.error_percent = error_percent
 
     @property
     def bool_count(self):
@@ -93,6 +94,7 @@ def export_synthetic_problem(synthetic_problem, to_str=True):
         "formula_count": synthetic_problem.formula_count,
         "terms_per_formula": synthetic_problem.terms_per_formula,
         "half_space_count": synthetic_problem.half_space_count,
+        "error_percent": synthetic_problem.error_percent,
     }
     return json.dumps(flat) if to_str else flat
 
@@ -103,7 +105,9 @@ def import_synthetic_problem(flat):
     formula_count = int(flat["formula_count"])
     terms_per_formula = int(flat["terms_per_formula"])
     half_space_count = int(flat["half_space_count"])
-    return SyntheticProblem(theory_problem, cnf_or_dnf, formula_count, terms_per_formula, half_space_count)
+    error_percent = int(flat.get("error_percent", 0))
+    return SyntheticProblem(theory_problem, cnf_or_dnf, formula_count, terms_per_formula, half_space_count,
+                            error_percent)
 
 
 def export_data(data, to_str=True):
@@ -295,10 +299,12 @@ def get_problem_samples(test_problem, sample_count, max_ratio):
 
 
 def get_synthetic_problem_name(prefix, bool_count, real_count, cnf_or_dnf, k, l_per_term, h, sample_count, seed,
-                               ratio_percent, i=None):
+                               ratio_percent, error_percent, i=None):
     name = "{prefix}_{bc}_{rc}_{type}_{fc}_{tpf}_{hc}_{sc}_{seed}_{ratio}" \
         .format(bc=bool_count, rc=real_count, type=cnf_or_dnf, fc=k, tpf=l_per_term, hc=h, sc=sample_count,
                 prefix=prefix, seed=seed, ratio=int(ratio_percent))
+    if error_percent > 0:
+        name += "_{error}".format(error=int(error_percent))
     if i is not None:
         name = name + "_" + str(i)
     return name
@@ -309,7 +315,7 @@ class GeneratorError(RuntimeError):
 
 
 class Generator(object):
-    def __init__(self, bool_count, real_count, bias, k, l, h, sample_count, max_ratio, seed, prefix):
+    def __init__(self, bool_count, real_count, bias, k, l, h, sample_count, max_ratio, errors, seed, prefix):
         self.domain = generate_domain(bool_count, real_count)
         self.bias = bias
         self.k = k
@@ -317,6 +323,7 @@ class Generator(object):
         self.h = h
         self.sample_count = sample_count
         self.max_ratio = max_ratio
+        self.errors = errors
         self.seed = seed
         self.prefix = prefix + "_r"
         self.max_tries = 10000
@@ -447,9 +454,9 @@ class Generator(object):
             literal_pool += [(smt.Not(l), ~bits) for l, bits in literal_pool]
 
             try:
-                formula = self.get_formula(self.get_name(i), literal_pool)
+                data_set = self.get_formula(self.get_name(i), literal_pool)
                 count += 1
-                yield formula
+                yield data_set
             except GeneratorError:
                 continue
         if i == self.max_tries:
@@ -596,7 +603,7 @@ def generate(data_sets, prefix, b_count, r_count, cnf_or_dnf, k, l_per_term, h, 
         i += 1
 
 
-def generate_random(data_sets, prefix, b_count, r_count, cnf_or_dnf, k, lits, h, sample_count, ratio_percent,
+def generate_random(data_sets, prefix, b_count, r_count, bias, k, lits, h, sample_count, ratio_percent, error_percent,
                     data_dir, plot_dir=None):
 
     seed = hash(time.time())
@@ -606,7 +613,8 @@ def generate_random(data_sets, prefix, b_count, r_count, cnf_or_dnf, k, lits, h,
         os.makedirs(data_dir)
 
     i = 0
-    producer = Generator(b_count, r_count, cnf_or_dnf, k, lits, h, sample_count, ratio_percent / 100, seed, prefix)
+    ratio, errors = ratio_percent / 100, error_percent / 100
+    producer = Generator(b_count, r_count, bias, k, lits, h, sample_count, ratio, errors,seed, prefix)
     for data_set in producer.generate(data_sets):
         data_file = os.path.join(data_dir, "{}.txt".format(data_set.synthetic_problem.theory_problem.name))
         with open(data_file, "w") as f:
@@ -614,8 +622,8 @@ def generate_random(data_sets, prefix, b_count, r_count, cnf_or_dnf, k, lits, h,
 
         if plot_dir is not None and b_count == 0 and r_count == 2:
             import plotting
-            dir_name = get_synthetic_problem_name(prefix, b_count, r_count, cnf_or_dnf, k, lits, h, sample_count,
-                                                  seed, ratio_percent)
+            dir_name = get_synthetic_problem_name(prefix, b_count, r_count, bias, k, lits, h, sample_count,
+                                                  seed, ratio_percent, error_percent)
             domain = data_set.synthetic_problem.theory_problem.domain
             output_dir = os.path.join(plot_dir, dir_name)
             if not os.path.exists(output_dir):
