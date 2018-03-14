@@ -27,6 +27,10 @@ class IncrementalConfig(object):
         self.data = None
         self.dt_weights = None
 
+    def set_data(self, data):
+        self.data = data
+        self.dt_weights = None
+
     def get_dt_weights(self):
         if self.dt_weights is None:
             import dt_selection
@@ -89,6 +93,8 @@ def learn_synthetic(input_dir, prefix, results_dir, bias, incremental_config, pl
             data = random.sample(data, sample_count)
         else:
             sample_count = len(data)
+
+        incremental_config.set_data(data)
 
         if not parameter_free:
             initial_indices = incremental_config.get_initial_indices()
