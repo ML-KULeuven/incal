@@ -1,10 +1,10 @@
 import json
 import StringIO
 import os
-from os.path import join
+from os.path import join, dirname
 
 import sys
-from fabric.api import run, env, execute, cd, local, put, get, prefix
+from fabric.api import run, env, execute, cd, local, put, get, prefix, lcd
 from fabric.contrib import files
 
 
@@ -30,87 +30,75 @@ def vary_synthetic_parameter(parameter_name, values, fixed_values, learner_setti
     del default_values[parameter_name]
 
     config = {"fixed": default_values, "vary": parameter_name, "values": values, "learner": learner_settings}
-    config_json = json.dumps(config)
     if exp_name is None:
-        exp_name = "h" + str(hash(config_json) + sys.maxsize + 1)
+        exp_name = "h" + str(hash(json.dumps(config)) + sys.maxsize + 1)
 
     print(config)
 
-    generation_dir_name = "synthetic/{}/{}".format(parameter_name, exp_name)
-    full_gen = join(env.smt_learning_root, generation_dir_name)
-
-    output_dir_name = "output/{}".format(generation_dir_name)
-    full_out = join(env.smt_learning_root, output_dir_name)
-
-    full_code = join(env.smt_learning_root, "smtlearn")
+    exp_path = join("synthetic", parameter_name, exp_name)
+    local_root = dirname(dirname(__file__))
+    full_gen = join(local_root, exp_path)
+    full_out = join(local_root, "output", exp_path)
+    full_code = join(local_root, "smtlearn")
     full_api = join(full_code, "api.py")
     full_exp = join(full_code, "experiments.py")
 
-    python = env.python
+    # Generate
+    gen_config = join(full_gen, "config.json")
+    if override or not os.path.exists(gen_config):
+        local("mkdir -p {}".format(full_gen))
 
-    with(cd(env.smt_learning_root)):
+        with open(gen_config, "w") as f:
+            json.dump(config, f)
 
-        with(prefix("source {}".format(env.activate))):
-            export_command = run("pysmt-install --env")
+        commands = []
+        for value in values:
+            default_values[parameter_name] = value
+            options = " ".join("--{} {}".format(name, val) for name, val in default_values.items())
+            command = "python {api} generate {input}/{val} {options}" \
+                .format(api=full_api, input=full_gen, val=value, options=options)
+            commands.append(command)
+        commands.append("wait")
 
-        # Generate
-        if override or not files.exists("{}/config.json".format(full_gen)):
-            run("mkdir -p {}".format(generation_dir_name))
-            put(StringIO.StringIO(config_json), generation_dir_name + "/config.json")
+        local(" & ".join(commands))
 
-            commands = []
+    # Learn
+    out_config = join(full_out, "config.json")
+    if override or not os.path.exists(out_config):
+        local("mkdir -p {}".format(full_out))
+
+        with open(out_config, "w") as f:
+            json.dump(config, f)
+
+        commands = []
+        for value in values:
+            options = " ".join("--{} {}".format(name, val) for name, val in learner_settings.items())
+            command = "python {exp} {input}/{val} \"\" {output}/{val} {options}" \
+                .format(exp=full_exp, input=full_gen, output=full_out, val=value, options=options)
+            if time_out is not None:
+                command += " -t {}".format(time_out)
+            commands.append(command)
+        commands.append("wait")
+
+        local(" & ".join(commands))
+
+    # Combine
+    if override or not os.path.exists(join(full_out, "summary")):
+        with lcd(full_gen):
+            local("mkdir -p all")
             for value in values:
-                default_values[parameter_name] = value
-                options = " ".join("--{} {}".format(name, val) for name, val in default_values.items())
-                command = "{python} {api} generate {input}/{val} {options}" \
-                    .format(python=python, api=full_api, input=full_gen, val=value, options=options)
-                commands.append("({} && {})".format(export_command, command))
-            commands.append("wait")
+                local("cp {}/* all/".format(value))
 
-            run(" & ".join(commands))
+        local("python {api} combine {output}/summary {values} -p {output}/"
+            .format(api=full_api, output=full_out, values=" ".join(str(v) for v in values)))
 
-        # Learn
-        if override or not files.exists("{}/config.json".format(full_out)):
-            run("mkdir -p {}".format(output_dir_name))
-            put(StringIO.StringIO(config_json), output_dir_name + "/config.json")
-
-            commands = []
-            for value in values:
-                options = " ".join("--{} {}".format(name, val) for name, val in learner_settings.items())
-                command = "{python} {exp} {input}/{val} \"\" {output}/{val} {options}" \
-                    .format(python=python, exp=full_exp, input=full_gen, output=full_out, val=value, options=options)
-                if time_out is not None:
-                    command += " -t {}".format(time_out)
-                commands.append("({} && {})".format(export_command, command))
-            commands.append("wait")
-
-            run(" & ".join(commands))
-
-        # Combine
-        if override or not files.exists("{}/summary".format(full_out)):
-            with cd(generation_dir_name):
-                run("mkdir -p all")
-                for value in values:
-                    run("cp {}/* all/".format(value))
-
-            with(prefix(export_command)):
-                run("{python} {api} combine {output}/summary {values} -p {output}/"
-                    .format(python=python, api=full_api, output=full_out, values=" ".join(str(v) for v in values)))
-
-            for migration in ["ratio", "accuracy"]:
-                command = "{python} {api} migrate {migration} {output}/summary -d {input}/all" \
-                    .format(output=full_out, input=full_gen, values=" ".join(str(v) for v in values), api=full_api,
-                            migration=migration, python=python)
-                if samples is not None:
-                    command += " -s {}".format(samples)
-                with(prefix(export_command)):
-                    run(command)
-
-        local_root = os.path.dirname(os.path.dirname(__file__))
-        if override or not os.path.exists(join(local_root, generation_dir_name)):
-            get(generation_dir_name, "{}/{}".format(local_root, os.path.dirname(generation_dir_name)))
-        if override or not os.path.exists(join(local_root, output_dir_name)):
-            get(output_dir_name, "{}/{}".format(local_root, os.path.dirname(output_dir_name)))
+        for migration in ["ratio", "accuracy"]:
+            command = "python {api} migrate {migration} {output}/summary -d {input}/all" \
+                .format(output=full_out, input=full_gen, values=" ".join(str(v) for v in values), api=full_api,
+                        migration=migration)
+            if samples is not None:
+                command += " -s {}".format(samples)
+            local(command)
 
 
 def vary_h(time_out=None, samples=None, override=False):
@@ -127,14 +115,25 @@ def vary_h(time_out=None, samples=None, override=False):
 
 def vary_h_simple(time_out=None, samples=None):
     parameter_name = "half_spaces"
-    values = [3, 4]
+    values = [3, 4, 5, 6, 7, 8]
     fixed_values = {"data_sets": 10, "bool_count": 0, "real_count": 2, "k": 2, "literals": 3}
 
     learner = {"bias": "cnf", "selection": "random"}
-    vary_synthetic_parameter(parameter_name, values, fixed_values, learner, time_out, samples)
+    vary_synthetic_parameter(parameter_name, values, fixed_values, learner, time_out, samples, "small_standard")
 
-    # learner["selection"] = "dt_weighted"
-    # vary_synthetic_parameter(parameter_name, values, fixed_values, learner, time_out, samples)
+    learner["selection_size"] = 1
+    vary_synthetic_parameter(parameter_name, values, fixed_values, learner, time_out, samples, "small_standard_single")
+
+    learner["selection_size"] = 20
+    vary_synthetic_parameter(parameter_name, values, fixed_values, learner, time_out, samples, "small_standard_20")
+
+    learner["selection"] = "dt_weighted"
+    learner["selection_size"] = 1
+    vary_synthetic_parameter(parameter_name, values, fixed_values, learner, time_out, samples, "small_dt_1")
+
+    learner["selection"] = "dt"
+    learner["selection_size"] = 1
+    vary_synthetic_parameter(parameter_name, values, fixed_values, learner, time_out, samples, "small_sdt_1")
 
 
 if __name__ == "__main__":

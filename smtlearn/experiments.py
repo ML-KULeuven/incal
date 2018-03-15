@@ -10,7 +10,8 @@ import time
 
 from generator import import_synthetic_data_files
 from inc_logging import LoggingObserver
-from incremental_learner import AllViolationsStrategy, RandomViolationsStrategy, WeightedRandomViolationsStrategy
+from incremental_learner import AllViolationsStrategy, RandomViolationsStrategy, WeightedRandomViolationsStrategy, \
+    MaxViolationsStrategy
 from k_cnf_smt_learner import KCnfSmtLearner
 from k_dnf_smt_learner import KDnfSmtLearner
 from parameter_free_learner import learn_bottom_up
@@ -55,6 +56,8 @@ class IncrementalConfig(object):
             return RandomViolationsStrategy(self.selection_size)
         elif self.selection == "dt_weighted":
             return WeightedRandomViolationsStrategy(self.selection_size, self.get_dt_weights())
+        elif self.selection == "dt":
+            return MaxViolationsStrategy(self.selection_size, self.get_dt_weights())
         else:
             raise RuntimeError("Unknown selection type {}".format(self.selection))
 
@@ -95,6 +98,7 @@ def learn_synthetic(input_dir, prefix, results_dir, bias, incremental_config, pl
             sample_count = len(data)
 
         incremental_config.set_data(data)
+        incremental_config.domain = domain
 
         if not parameter_free:
             initial_indices = incremental_config.get_initial_indices()

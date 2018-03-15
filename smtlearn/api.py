@@ -4,6 +4,7 @@ import os
 
 import math
 
+
 if __name__ == "__main__":
     def parse_args():
         parser = argparse.ArgumentParser()
