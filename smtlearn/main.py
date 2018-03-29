@@ -20,6 +20,7 @@ from smt_check import SmtChecker
 
 import parse
 from smt_print import pretty_print
+from virtual_data import OneClassStrategy
 
 mpl.use('TkAgg')
 import matplotlib.pyplot as plt
@@ -314,9 +315,11 @@ def draw_border_points(feat_x, feat_y, data, border_indices, name):
 
 
 def learn_parameter_free(problem, data, seed):
+    thresholds = {"chocolate": 0.2, "banana": 0.2}
+
     def learn_inc(_data, _k, _h):
-        learner = KCnfSmtLearner(_k, _h, RandomViolationsStrategy(10))
-        dir_name = "../output/{}".format(problem.name)
+        learner = KCnfSmtLearner(_k, _h, OneClassStrategy(RandomViolationsStrategy(1), thresholds))
+        dir_name = "../output/{}_one_class".format(problem.name)
         img_name = "{}_{}_{}_{}_{}".format(learner.name, _k, _h, len(data), seed)
         learner.add_observer(plotting.PlottingObserver(data, dir_name + "/week", img_name, "chocolate", "banana",
                                                        condition=lambda instance, _l: not instance["weekend"]))
