@@ -8,6 +8,7 @@ import random
 import shutil
 
 import re
+import subprocess
 
 import time
 from bitarray import bitarray
@@ -46,9 +47,9 @@ def migrate_results(directory, bias=None):
 
 
 def calculate_accuracy(domain, target_formula, learned_formula):
-    from sys import path
-    path.insert(0, "/Users/samuelkolb/Documents/PhD/wmi-pa/experiments/client")
-    from run import compute_wmi
+    # from sys import path
+    # path.insert(0, "/Users/samuelkolb/Documents/PhD/wmi-pa/experiments/client")
+    # from run import compute_wmi
     print("Calculate accuracy:")
     # print(pretty_print(target_formula))
     # print(pretty_print(learned_formula))
@@ -64,10 +65,20 @@ def calculate_accuracy(domain, target_formula, learned_formula):
     # t2 = (2 <= 3 * x + y)
     # f = (t1 & t2)
 
+    flat = {
+        "domain": problem.export_domain(domain, False),
+        "query": parse.smt_to_nested(smt.Iff(target_formula, learned_formula))
+    }
+
     print(domain)
     print(pretty_print(target_formula))
     print(pretty_print(learned_formula))
-    accuracy = list(compute_wmi(domain, [smt.Iff(target_formula, learned_formula)]))[0]
+    # accuracy = list(compute_wmi(domain, [smt.Iff(target_formula, learned_formula)]))[0]
+
+    output = str(subprocess.check_output(["/Users/samuelkolb/Documents/PhD/wmi-pa/env/bin/python",
+                                     "/Users/samuelkolb/Documents/PhD/wmi-pa/experiments/client/run.py", "-s",
+                                     json.dumps(flat)]))
+    accuracy = float(output.split(": ")[1])
     print(accuracy)
     return accuracy
 

@@ -530,6 +530,7 @@ class TableMaker(object):
             "samples": lambda r, d, c: int(c["sample_size"]),
             "l": self.extract_literals,
             "acc": self.extract_accuracy,
+            "acc_exact": self.extract_accuracy_exact,
             "rel_acc": self.extract_relative_accuracy,
             "ratio": self.extract_ratio,
             "time_out": self.extract_timeout,
@@ -553,11 +554,12 @@ class TableMaker(object):
             "samples": "# samples",
             "l": "# literals",
             "acc": "accuracy",
+            "acc_exact": "accuracy",
             "rel_acc": "relative accuracy",
             "ratio": "ratio",
             "time_out": "Time-out ratio",
             "active": "Examples used",
-            "active_ratio": "Ratio of examples used",
+            "active_ratio": "ratio of examples used",
             "constant": "Constant",
         }[extraction_type]
 
@@ -570,7 +572,7 @@ class TableMaker(object):
             return None, None
         elif extraction_type in ["ratio", "time_out", "active_ratio", "time_ratio"]:
             return 0, 1
-        elif extraction_type in ["acc"]:
+        elif extraction_type in ["acc", "acc_exact"]:
             return 0.5, 1
         elif extraction_type in ["rel_acc"]:
             return -1, 1
@@ -630,6 +632,13 @@ class TableMaker(object):
         timed_out = config.get("time_out", False)
         if not timed_out:
             return config["approx_accuracy"]["1000"][0]["acc"]
+        else:
+            return None
+
+    def extract_accuracy_exact(self, results_dir, data_dir, config):
+        timed_out = config.get("time_out", False)
+        if not timed_out:
+            return config["exact_accuracy"]
         else:
             return None
 
@@ -729,7 +738,7 @@ class TableMaker(object):
                 lines.append(self.delimiter.join([str(rk)] + [str(get_val((rk, ck))) for ck in self.col_keys]))
         return "\n".join(lines)
 
-    def plot_table(self, filename=None, index=None, y_min=None, y_max=None, x_min=None, x_max=None):
+    def plot_table(self, filename=None, index=None, y_min=None, y_max=None, x_min=None, x_max=None, legend_pos=None):
         import rendering
         import numpy
 
@@ -771,5 +780,5 @@ class TableMaker(object):
 
         label_y = self.get_name(self.value_type).capitalize()
         label_x = self.get_name(self.col_key_type).capitalize()
-        scatter.plot(filename=filename, size=(8, 4), lines=True, log_x=False, log_y=False, label_y=label_y, label_x=label_x,
-                     x_ticks=self.get_x_ticks())
+        scatter.plot(filename=filename, size=(4, 2.8), lines=True, log_x=False, log_y=False, label_y=label_y, label_x=label_x,
+                     x_ticks=self.get_x_ticks(), legend_pos=legend_pos)

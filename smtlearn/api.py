@@ -41,6 +41,7 @@ if __name__ == "__main__":
         table_plot_parser.add_argument("--y_max", default=None, type=float, help="Maximum value for y")
         table_plot_parser.add_argument("--x_min", default=None, type=float, help="Minimum value for x")
         table_plot_parser.add_argument("--x_max", default=None, type=float, help="Maximum value for x")
+        table_plot_parser.add_argument("--legend_pos", default=None, type=str, help="Legend position")
         table_plot_parser.add_argument("-o", "--output", default=None, help="Specify the output file")
 
         combine_parser = subparsers.add_parser("combine", help="Combine multiple results directories")
@@ -105,7 +106,7 @@ if __name__ == "__main__":
                 table.delimiter = args.delimiter
                 print(table.to_txt(0, args.aggregate))
             elif args.command == "plot":
-                table.plot_table(args.output, None if args.aggregate else 0, args.y_min, args.y_max, args.x_min, args.x_max)
+                table.plot_table(args.output, None if args.aggregate else 0, args.y_min, args.y_max, args.x_min, args.x_max, args.legend_pos)
             else:
                 print("Error: unknown table command {}".format(args.command))
         elif args.mode == "combine":

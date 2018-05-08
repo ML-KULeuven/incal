@@ -157,6 +157,11 @@ def smt_to_nested(expression):
         return convert_children("|")
     if expression.node_type() == IMPLIES:
         return smt_to_nested(smt.Or(smt.Not(expression.args()[0]), expression.args()[1]))
+    if expression.is_iff():
+        return smt_to_nested(smt.And(
+            smt.Implies(expression.args()[0], expression.args()[1]),
+            smt.Implies(expression.args()[1], expression.args()[0])
+        ))
     if expression.is_not():
         return convert_children("~")
     if expression.is_times():

@@ -46,11 +46,14 @@ class ScatterData:
         iterator = itertools.cycle(mark.MarkerStyle.filled_markers)
         return [next(iterator) for _ in range(len(self.data))]
 
-    def render(self, ax, lines=True, log_x=True, log_y=True, label_x=None, label_y=None, legend_pos="lower right",
+    def render(self, ax, lines=True, log_x=True, log_y=True, label_x=None, label_y=None, legend_pos=None,
                x_ticks=None):
         plots = []
         colors = self.gen_colors()
         markers = self.gen_markers()
+
+        if legend_pos is None:
+            legend_pos = "lower right"
 
         for i in range(self.size):
             title, times, error = self.data[i]
@@ -92,7 +95,7 @@ class ScatterData:
         if filename is None:
             plt.show()
         else:
-            plt.savefig(filename, format="pdf")
+            plt.savefig(filename, format="png", bbox_inches="tight", pad_inches=0.08)
 
 
 def plot(file, *args, **kwargs):
