@@ -1,15 +1,22 @@
+import itertools
+import math
+
 import matplotlib as mpl
 import os
+import pysmt.shortcuts as smt
 
 from incremental_learner import IncrementalObserver
 from smt_check import SmtChecker
+from smt_print import pretty_print
+from visualize import RegionBuilder
 
 mpl.use('TkAgg')
 import matplotlib.pyplot as plt
 
 
 class PlottingObserver(IncrementalObserver):
-    def __init__(self, data, directory, name, feat_x, feat_y, condition=None):
+    def __init__(self, domain, data, directory, name, feat_x, feat_y, condition=None):
+        self.domain = domain
         self.data = data
         self.directory = directory
 
@@ -26,98 +33,95 @@ class PlottingObserver(IncrementalObserver):
     def observe_initial(self, initial_indices):
         self.all_active = self.all_active.union(initial_indices)
         name = "{}{}{}_{}".format(self.directory, os.path.sep, self.name, self.iteration)
-        draw_border_points(self.feat_x, self.feat_y, self.data, initial_indices, name)
+        draw_points(self.feat_x, self.feat_y, self.domain, None, self.data, None, name, [], initial_indices)
 
     def observe_iteration(self, theory, new_active_indices, solving_time, selection_time):
         self.iteration += 1
         learned_labels = [SmtChecker(instance).check(theory) for instance, _ in self.data]
         name = "{}{}{}_{}".format(self.directory, os.path.sep, self.name, self.iteration)
-        draw_points(self.feat_x, self.feat_y, self.data, learned_labels, name, self.all_active, new_active_indices,
+        draw_points(self.feat_x, self.feat_y, self.domain, theory, self.data, learned_labels, name, self.all_active, new_active_indices,
                     condition=self.condition)
         self.all_active = self.all_active.union(new_active_indices)
 
 
-def draw_border_points(feat_x, feat_y, data, border_indices, name):
-    relevant_pos = []
-    irrelevant_pos = []
-    relevant_neg = []
-    irrelevant_neg = []
+def draw_points(feat_x, feat_y, domain, formula, data, learned_labels, name, active_indices, new_active_indices, hyperplanes=None, condition=None):
 
-    for i in range(len(data)):
-        row = data[i]
-        point = (row[0][feat_x], row[0][feat_y])
-        if i in border_indices and row[1]:
-            relevant_pos.append(point)
-        elif i in border_indices and not row[1]:
-            relevant_neg.append(point)
-        elif i not in border_indices and row[1]:
-            irrelevant_pos.append(point)
-        else:
-            irrelevant_neg.append(point)
+    fig = plt.figure()
 
-    if len(relevant_pos) > 0: plt.scatter(*zip(*relevant_pos), c="blue", marker="o")
-    if len(irrelevant_pos) > 0: plt.scatter(*zip(*irrelevant_pos), c="blue", marker="o", alpha=0.2)
-    if len(relevant_neg) > 0: plt.scatter(*zip(*relevant_neg), c="grey", marker="x")
-    if len(irrelevant_neg) > 0: plt.scatter(*zip(*irrelevant_neg), c="grey", marker="x", alpha=0.2)
+    row_vars = domain.bool_vars[:int(len(domain.bool_vars) / 2)]
+    col_vars = domain.bool_vars[int(len(domain.bool_vars) / 2):]
 
-    plt.xlim([0, 1])
-    plt.ylim([0, 1])
+    for assignment in itertools.product([True, False], repeat=len(domain.bool_vars)):
+        row = 0
+        for b in assignment[:len(row_vars)]:
+            row = row * 2 + (1 if b else 0)
 
-    plt.savefig("{}.png".format(name))
-    plt.gcf().clear()
+        col = 0
+        for b in assignment[len(row_vars):]:
+            col = col * 2 + (1 if b else 0)
 
+        index = row * len(col_vars) + col
+        ax = fig.add_subplot(2 ** len(row_vars), 2 ** len(col_vars), 1 + index)
 
-def draw_points(feat_x, feat_y, data, learned_labels, name, active_indices, new_active_indices, hyperplanes=None, condition=None):
-    points = []
+        if formula is not None:
+            substitution = {domain.get_symbol(v): smt.Bool(a) for v, a in zip(domain.bool_vars, assignment)}
+            substituted = formula.substitute(substitution)
+            region = RegionBuilder(domain).walk_smt(substituted)
+            try:
+                if region.dim == 2:
+                    region.plot(ax=ax, color="green", alpha=0.2)
+            except IndexError:
+                pass
 
-    for i in range(len(data)):
-        instance, label = data[i]
-        point = (float(instance[feat_x]), float(instance[feat_y]))
-        correct = learned_labels[i] == label
-        status = "active" if i in active_indices else ("new_active" if i in new_active_indices else "excluded")
-        if condition is None or condition(instance, label):
-            points.append((label, correct, status, point))
+        points = []
+        for i in range(len(data)):
+            instance, label = data[i]
+            point = (float(instance[feat_x]), float(instance[feat_y]))
+            correct = (learned_labels[i] == label) if learned_labels is not None else True
+            status = "active" if i in active_indices else ("new_active" if i in new_active_indices else "excluded")
+            match = all(instance[v] == a for v, a in zip(domain.bool_vars, assignment))
+            if match and (condition is None or condition(instance, label)):
+                points.append((label, correct, status, point))
 
-    def get_color(_l, _c, _s):
-        if _s == "active":
-            return "black"
-        return "green" if _l == _c else "red"
+        def get_color(_l, _c, _s):
+            if _s == "active":
+                return "black"
+            return "green" if _l else "red"
 
-    def get_marker(_l, _c, _s):
-        # if _s == "active":
-        #     return "v"
-        return "o" if _l else "x"
+        def get_marker(_l, _c, _s):
+            # if _s == "active":
+            #     return "v"
+            return "+" if _l else "."
 
-    def get_alpha(_l, _c, _s):
-        if _s == "active":
-            return 0.5
-        elif _s == "new_active":
-            return 1
-        elif _s == "excluded":
-            return 0.1
+        def get_alpha(_l, _c, _s):
+            if _s == "active":
+                return 0.5
+            elif _s == "new_active":
+                return 1
+            elif _s == "excluded":
+                return 0.2
 
-    for label in [True, False]:
-        for correct in [True, False]:
-            for status in ["active", "new_active", "excluded"]:
-                marker, color, alpha = [f(label, correct, status) for f in (get_marker, get_color, get_alpha)]
-                selection = [p for l, c, s, p in points if l == label and c == correct and s == status]
-                if len(selection) > 0:
-                    plt.scatter(*zip(*selection), c=color, marker=marker, alpha=alpha)
+        for label in [True, False]:
+            for correct in [True, False]:
+                for status in ["active", "new_active", "excluded"]:
+                    marker, color, alpha = [f(label, correct, status) for f in (get_marker, get_color, get_alpha)]
+                    selection = [p for l, c, s, p in points if l == label and c == correct and s == status]
+                    if len(selection) > 0:
+                        ax.scatter(*zip(*selection), c=color, marker=marker, alpha=alpha)
 
-    if hyperplanes is not None:
-        planes = [constraint_to_hyperplane(h) for conj in hyperplanes for h in conj if h.is_le() or h.is_lt()]
-        for plane in planes:
-            print(plane)
-            if plane[0][feat_y] == 0:
-                plt.plot([plane[1], plane[1]], [0, 1])
-            else:
-                plt.plot([0, 1], [(plane[1] - plane[0][feat_x] * x) / plane[0][feat_y] for x in [0, 1]])
+        if hyperplanes is not None:
+            planes = [constraint_to_hyperplane(h) for conj in hyperplanes for h in conj if h.is_le() or h.is_lt()]
+            for plane in planes:
+                if plane[0][feat_y] == 0:
+                    ax.plot([plane[1], plane[1]], [0, 1])
+                else:
+                    ax.plot([0, 1], [(plane[1] - plane[0][feat_x] * x) / plane[0][feat_y] for x in [0, 1]])
 
-    plt.xlim([0, 1])
-    plt.ylim([0, 1])
+        ax.set_xlim([0, 1])
+        ax.set_ylim([0, 1])
 
     plt.savefig("{}.png".format(name))
-    plt.gcf().clear()
+    plt.close(fig)
 
 
 def constraint_to_hyperplane(constraint):
