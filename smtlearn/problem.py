@@ -21,8 +21,16 @@ class Domain(object):
     def real_vars(self):
         return [v for v in self.variables if self.var_types[v] == smt.REAL]
 
-    def get_symbol(self, variable):
-        return smt.Symbol(variable, self.var_types[variable])
+    def get_symbol(self, variable, formula_manager=None):
+        if formula_manager is None:
+            formula_manager = smt
+        return formula_manager.Symbol(variable, self.var_types[variable])
+
+    def get_bounds(self, formula_manager=None):
+        fm = smt if formula_manager is None else formula_manager
+        sym = fm.Symbol
+        bounds = [(sym(v, smt.REAL) >= b[0]) & (sym(v, smt.REAL) <= b[1]) for v, b in self.var_domains.items()]
+        return fm.And(*bounds)
 
     def __str__(self):
         return "({})".format(", ".join(
