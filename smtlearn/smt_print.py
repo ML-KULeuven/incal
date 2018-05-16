@@ -41,7 +41,7 @@ class PrintWalker(SmtWalker):
 
     def walk_constant(self, value, v_type):
         if v_type == smt.BOOL:
-            return str(v_type)
+            return str(value)
         elif v_type == smt.REAL:
             return "{}".format(float(value))
         else:
