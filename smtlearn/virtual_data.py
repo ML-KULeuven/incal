@@ -60,7 +60,7 @@ class OneClassStrategy(SelectionStrategy):
                 solver.solve()
                 model = solver.get_model()
                 example = {var: model.get_value(symbols[var]).constant_value() for var in domain.variables}
-                example = {var: float(val) for var, val in example.items() if var in domain.real_vars}
+                example = {var: (float(val) if var in domain.real_vars else bool(val)) for var, val in example.items()}
         except Z3Exception:
             return None
         except InternalSolverError:
