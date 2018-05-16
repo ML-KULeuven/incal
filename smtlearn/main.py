@@ -1,6 +1,7 @@
 from __future__ import print_function
 
 import itertools
+import math
 import random
 import time
 from math import sqrt
@@ -9,6 +10,8 @@ import matplotlib as mpl
 from pysmt.shortcuts import *
 
 import plotting
+from generator import get_sample
+from inc_logging import LoggingObserver
 from incremental_learner import AllViolationsStrategy, RandomViolationsStrategy
 from k_cnf_smt_learner import KCnfSmtLearner
 from k_dnf_logic_learner import KDNFLogicLearner, GreedyLogicDNFLearner, GreedyMaxRuleLearner
@@ -20,12 +23,12 @@ from smt_check import SmtChecker
 
 import parse
 from smt_print import pretty_print
+from virtual_data import OneClassStrategy
 
 mpl.use('TkAgg')
 import matplotlib.pyplot as plt
 
 from k_dnf_learner import KDNFLearner
-
 
 def xy_domain():
     variables = ["x", "y"]
@@ -314,14 +317,40 @@ def draw_border_points(feat_x, feat_y, data, border_indices, name):
 
 
 def learn_parameter_free(problem, data, seed):
-    def learn_inc(_data, _k, _h):
+    feat_x, feat_y = problem.domain.real_vars
+
+    def learn_inc(_data, i, _k, _h):
         learner = KCnfSmtLearner(_k, _h, RandomViolationsStrategy(10))
         dir_name = "../output/{}".format(problem.name)
-        img_name = "{}_{}_{}_{}_{}".format(learner.name, _k, _h, len(data), seed)
-        learner.add_observer(plotting.PlottingObserver(data, dir_name + "/week", img_name, "chocolate", "banana",
-                                                       condition=lambda instance, _l: not instance["weekend"]))
-        learner.add_observer(plotting.PlottingObserver(data, dir_name + "/weekend", img_name, "chocolate", "banana",
-                                                       condition=lambda instance, _l: instance["weekend"]))
+        img_name = "{}_{}_{}_{}_{}_{}".format(learner.name, i, _k, _h, len(data), seed)
+        learner.add_observer(plotting.PlottingObserver(problem.domain, data, dir_name, img_name, feat_x, feat_y))
+
+        initial_indices = random.sample(list(range(len(data))), 20)
+
+        learned_theory = learner.learn(problem.domain, data, initial_indices)
+        print("Learned theory:\n{}".format(pretty_print(learned_theory)))
+        return learned_theory
+
+    learn_bottom_up(data, learn_inc, 1, 1)
+
+
+def learn_one_class(problem, data, seed):
+    feat_x, feat_y = problem.domain.real_vars
+    thresholds = {feat_x: 0.1, feat_y: 0.1}
+    data = [(row, label) for row, label in data if label]
+
+    def learn_inc(_data, i, _k, _h):
+        learner = KCnfSmtLearner(_k, _h, OneClassStrategy(RandomViolationsStrategy(1), thresholds))
+        dir_name = "../output/{}_one_class".format(problem.name)
+        img_name = "{}_{}_{}_{}_{}_{}".format(learner.name, i, _k, _h, len(data), seed)
+
+        learner.add_observer(plotting.PlottingObserver(problem.domain, data, dir_name, img_name, feat_x, feat_y))
+
+        # Filter boolean versions
+        # learner.add_observer(plotting.PlottingObserver(data, dir_name + "/week", img_name, "chocolate", "banana",
+        #                                                condition=lambda instance, _l: not instance["weekend"]))
+        # learner.add_observer(plotting.PlottingObserver(data, dir_name + "/weekend", img_name, "chocolate", "banana",
+        #                                                condition=lambda instance, _l: instance["weekend"]))
 
         initial_indices = random.sample(list(range(len(data))), 20)
 
@@ -330,7 +359,52 @@ def learn_parameter_free(problem, data, seed):
         print("Learned theory:\n{}".format(pretty_print(learned_theory)))
         return learned_theory
 
-    learn_bottom_up(data, learn_inc, 1, 1, 3, 3)
+    learn_bottom_up(data, learn_inc, 1, 1, 4, 2)
+
+
+def learn_one_class_sample(problem, data, seed, negative_samples=None):
+    feat_x, feat_y = problem.domain.real_vars
+    threshold = 0.1
+    data = [(row, label) for row, label in data if label]
+    negative_samples = 200 if negative_samples is None else negative_samples
+    real_vars = problem.domain.real_vars
+    bool_vars = problem.domain.bool_vars
+
+    def l1(p1, p2): return max(abs(p1[r] - p2[r]) for r in real_vars) if all(p1[b] == p2[b] for b in bool_vars) else 1
+
+    def l2(p1, p2): return math.sqrt(sum((p1[r] - p2[r])**2 for r in real_vars)) if all(p1[b] == p2[b] for b in bool_vars) else 1
+
+    negatives = []
+    while len(negatives) < negative_samples:
+        neg_sample = get_sample(problem.domain)
+        if all(l1(neg_sample, pos) > threshold for pos, l in data):
+            negatives.append((neg_sample, False))
+
+    data += negatives
+
+    def learn_inc(_data, i, _k, _h):
+        strategy = RandomViolationsStrategy(10)
+        learner = KCnfSmtLearner(_k, _h, strategy)
+        dir_name = "../output/{}_one_class_sample".format(problem.name)
+        img_name = "{}_{}_{}_{}_{}_{}".format(learner.name, i, _k, _h, len(data), seed)
+
+        learner.add_observer(plotting.PlottingObserver(problem.domain, data, dir_name, img_name, feat_x, feat_y))
+        learner.add_observer(LoggingObserver(None, seed, True, strategy))
+
+        # Filter boolean versions
+        # learner.add_observer(plotting.PlottingObserver(data, dir_name + "/week", img_name, "chocolate", "banana",
+        #                                                condition=lambda instance, _l: not instance["weekend"]))
+        # learner.add_observer(plotting.PlottingObserver(data, dir_name + "/weekend", img_name, "chocolate", "banana",
+        #                                                condition=lambda instance, _l: instance["weekend"]))
+
+        initial_indices = random.sample(list(range(len(data))), 20)
+
+        learned_theory = learner.learn(problem.domain, data, initial_indices)
+        # learned_theory = Or(*[And(*planes) for planes in hyperplane_dnf])
+        print("Learned theory:\n{}".format(pretty_print(learned_theory)))
+        return learned_theory
+
+    learn_bottom_up(data, learn_inc, 1, 1)
 
 
 def main():
@@ -341,7 +415,7 @@ def main():
     # problem = simple_checker_problem()
     # problem = simple_checker_problem_cnf()
     # problem = shared_hyperplane_problem()
-    # problem = checker_problem()
+    problem = checker_problem()
     # problem = cross_problem()
     # problem = bool_xor_problem()
     # data = [
@@ -350,14 +424,15 @@ def main():
     #     ({"x": Real(0.1), "y": Real(0.9)}, False),
     #     ({"x": Real(0.9), "y": Real(0.1)}, False),
     # ]
-    problem = ice_cream_problem()
+    # problem = ice_cream_problem()
 
     sample_time_start = time.time()
     data = sample(problem, n, seed=seed)
     sample_time_elapsed = time.time() - sample_time_start
     print("Computing samples took {:.2f}s".format(sample_time_elapsed))
 
-    learn_parameter_free(problem, data, seed)
+    # learn_parameter_free(problem, data, seed)
+    learn_one_class(problem, data, seed)
     exit()
 
     start = time.time()
