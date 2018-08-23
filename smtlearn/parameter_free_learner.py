@@ -1,7 +1,7 @@
 import heapq
 
 import time
-from z3types import Z3Exception
+from z3.z3types import Z3Exception
 import pysmt
 
 

@@ -3,7 +3,7 @@ from __future__ import print_function
 from pysmt.exceptions import InternalSolverError
 from pysmt.environment import Environment
 from pysmt.typing import REAL, BOOL
-from z3types import Z3Exception
+from z3.z3types import Z3Exception
 
 from incremental_learner import SelectionStrategy
 
