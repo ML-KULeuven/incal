@@ -15,13 +15,23 @@ import matplotlib.pyplot as plt
 
 
 class PlottingObserver(IncrementalObserver):
-    def __init__(self, domain, data, directory, name, feat_x, feat_y, condition=None):
+    def __init__(self, domain, data, directory, name, feat_x, feat_y, condition=None, auto_clean=False):
         self.domain = domain
         self.data = data
         self.directory = directory
 
         if not os.path.exists(directory):
             os.makedirs(directory)
+
+        if auto_clean:
+            for the_file in os.listdir(directory):
+                file_path = os.path.join(directory, the_file)
+                try:
+                    if os.path.isfile(file_path):
+                        os.unlink(file_path)
+                    # elif os.path.isdir(file_path): shutil.rmtree(file_path)
+                except Exception as e:
+                    print(e)
 
         self.name = name
         self.all_active = set()
@@ -46,10 +56,11 @@ class PlottingObserver(IncrementalObserver):
 
 def draw_points(feat_x, feat_y, domain, formula, data, learned_labels, name, active_indices, new_active_indices, hyperplanes=None, condition=None):
 
-    fig = plt.figure()
-
     row_vars = domain.bool_vars[:int(len(domain.bool_vars) / 2)]
     col_vars = domain.bool_vars[int(len(domain.bool_vars) / 2):]
+    sf_size = 2
+
+    fig = plt.figure(num=None, figsize=(2 ** len(col_vars) * sf_size, 2 ** len(row_vars) * sf_size), dpi=300)
 
     for assignment in itertools.product([True, False], repeat=len(domain.bool_vars)):
         row = 0
@@ -60,7 +71,7 @@ def draw_points(feat_x, feat_y, domain, formula, data, learned_labels, name, act
         for b in assignment[len(row_vars):]:
             col = col * 2 + (1 if b else 0)
 
-        index = row * len(col_vars) + col
+        index = row * (2 ** len(col_vars)) + col
         ax = fig.add_subplot(2 ** len(row_vars), 2 ** len(col_vars), 1 + index)
 
         if formula is not None:
