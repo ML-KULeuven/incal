@@ -1,5 +1,6 @@
 import itertools
 import math
+import time
 
 import matplotlib as mpl
 import os
@@ -15,23 +16,28 @@ import matplotlib.pyplot as plt
 
 
 class PlottingObserver(IncrementalObserver):
-    def __init__(self, domain, data, directory, name, feat_x, feat_y, condition=None, auto_clean=False):
+    def __init__(self, domain, data, directory, name, feat_x, feat_y, condition=None, auto_clean=False, run_name=None):
         self.domain = domain
         self.data = data
-        self.directory = directory
 
         if not os.path.exists(directory):
             os.makedirs(directory)
 
         if auto_clean:
-            for the_file in os.listdir(directory):
-                file_path = os.path.join(directory, the_file)
-                try:
-                    if os.path.isfile(file_path):
-                        os.unlink(file_path)
-                    # elif os.path.isdir(file_path): shutil.rmtree(file_path)
-                except Exception as e:
-                    print(e)
+            run_number = 0
+            run_dir = None
+            while run_dir is None or os.path.exists(run_dir):
+                date_folders = time.strftime("%Y{s}%m{s}%d{s}".format(s=os.path.sep))
+                run_name = run_name + " " if run_name is not None else ""
+                run_dir_name = "run {}{}".format(run_name, time.strftime("%Hh %Mm %Ss"))
+                run_dir = os.path.join(directory, date_folders, run_dir_name)
+                if run_number > 0:
+                    run_dir += "_{}".format(run_number)
+                run_number += 1
+            os.makedirs(run_dir)
+            directory = run_dir
+
+        self.directory = directory
 
         self.name = name
         self.all_active = set()
