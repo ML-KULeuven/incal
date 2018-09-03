@@ -377,7 +377,7 @@ class Generator(object):
         for i in range(self.max_tries):
             literals = random.sample(literal_pool, self.l)
 
-            term = smt.Or(*zip(*literals)[0])
+            term = smt.Or(*list(zip(*literals))[0])
 
             covered = bitarray(self.sample_count)
             covered.setall(False)
@@ -403,7 +403,7 @@ class Generator(object):
         print("Generate formula:")
         for i in range(self.max_tries):
             terms = [self.get_term(literal_pool) for _ in range(self.k)]
-            formula = smt.And(*zip(*terms)[0])
+            formula = smt.And(*list(zip(*terms))[0])
 
             covered = bitarray(self.sample_count)
             covered.setall(True)
