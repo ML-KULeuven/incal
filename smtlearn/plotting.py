@@ -49,18 +49,20 @@ class PlottingObserver(IncrementalObserver):
     def observe_initial(self, initial_indices):
         self.all_active = self.all_active.union(initial_indices)
         name = "{}{}{}_{}".format(self.directory, os.path.sep, self.name, self.iteration)
-        draw_points(self.feat_x, self.feat_y, self.domain, None, self.data, None, name, [], initial_indices)
+        draw_points(self.feat_x, self.feat_y, self.domain, None, self.data, None, name, [], initial_indices,
+                    condition=self.condition)
 
     def observe_iteration(self, theory, new_active_indices, solving_time, selection_time):
         self.iteration += 1
         learned_labels = [SmtChecker(instance).check(theory) for instance, _ in self.data]
         name = "{}{}{}_{}".format(self.directory, os.path.sep, self.name, self.iteration)
-        draw_points(self.feat_x, self.feat_y, self.domain, theory, self.data, learned_labels, name, self.all_active, new_active_indices,
-                    condition=self.condition)
+        draw_points(self.feat_x, self.feat_y, self.domain, theory, self.data, learned_labels, name, self.all_active,
+                    new_active_indices, condition=self.condition)
         self.all_active = self.all_active.union(new_active_indices)
 
 
-def draw_points(feat_x, feat_y, domain, formula, data, learned_labels, name, active_indices, new_active_indices, hyperplanes=None, condition=None):
+def draw_points(feat_x, feat_y, domain, formula, data, learned_labels, name, active_indices, new_active_indices,
+                condition=None):
 
     row_vars = domain.bool_vars[:int(len(domain.bool_vars) / 2)]
     col_vars = domain.bool_vars[int(len(domain.bool_vars) / 2):]
@@ -126,35 +128,8 @@ def draw_points(feat_x, feat_y, domain, formula, data, learned_labels, name, act
                     if len(selection) > 0:
                         ax.scatter(*zip(*selection), c=color, marker=marker, alpha=alpha)
 
-        if hyperplanes is not None:
-            planes = [constraint_to_hyperplane(h) for conj in hyperplanes for h in conj if h.is_le() or h.is_lt()]
-            for plane in planes:
-                if plane[0][feat_y] == 0:
-                    ax.plot([plane[1], plane[1]], [0, 1])
-                else:
-                    ax.plot([0, 1], [(plane[1] - plane[0][feat_x] * x) / plane[0][feat_y] for x in [0, 1]])
-
         ax.set_xlim([0, 1])
         ax.set_ylim([0, 1])
 
     plt.savefig("{}.png".format(name))
     plt.close(fig)
-
-
-def constraint_to_hyperplane(constraint):
-    if constraint.is_le() or constraint.is_lt():
-        coefficients = dict()
-        left, right = constraint.args()
-        if right.is_plus():
-            left, right = right, left
-        if left.is_plus():
-            for term in left.args():
-                if term.is_times():
-                    c, v = term.args()
-                    coefficients[v.symbol_name()] = float(c.constant_value())
-                else:
-                    raise RuntimeError("Unexpected value, expected product, was {}".format(term))
-        else:
-            raise RuntimeError("Unexpected value, expected sum, was {}".format(left))
-        return coefficients, float(right.constant_value())
-    raise RuntimeError("Unexpected constraint, expected inequality, was {}".format(constraint))
