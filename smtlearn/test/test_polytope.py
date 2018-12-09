@@ -8,8 +8,8 @@ from unittest import TestCase
 from pysmt.typing import REAL
 import pysmt.shortcuts as smt
 
-from problem import Domain
-from visualize import RegionBuilder
+from pywmi.domain import Domain
+from pywmi.plot import RegionBuilder
 
 
 class TestPolytope(TestCase):
