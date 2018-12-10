@@ -6,7 +6,7 @@ class Learner(object):
     def __init__(self, name):
         self.name = name
 
-    def learn(self, domain, data, border_indices):
+    def learn(self, domain, data, labels, border_indices):
         raise NotImplementedError()
 
     @staticmethod

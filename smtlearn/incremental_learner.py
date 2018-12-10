@@ -2,8 +2,8 @@ import time
 
 import pysmt.shortcuts as smt
 
-from observe import observe
-from learner import Learner
+from .observe import observe
+from .learner import Learner
 
 
 class IncrementalObserver(observe.SpecializedObserver):
@@ -28,7 +28,7 @@ class IncrementalLearner(Learner):
     def add_observer(self, observer):
         self.observer.add_observer(observer)
 
-    def learn(self, domain, data, initial_indices=None):
+    def learn(self, domain, data, labels, initial_indices=None):
 
         active_indices = list(range(len(data))) if initial_indices is None else initial_indices
         all_active_indices = active_indices
@@ -40,7 +40,7 @@ class IncrementalLearner(Learner):
         with smt.Solver() as solver:
             while len(active_indices) > 0:
                 solving_start = time.time()
-                formula = self.learn_partial(solver, domain, data, active_indices)
+                formula = self.learn_partial(solver, domain, data, labels, active_indices)
                 solving_time = time.time() - solving_start
 
                 selection_start = time.time()
@@ -52,5 +52,5 @@ class IncrementalLearner(Learner):
 
         return formula
 
-    def learn_partial(self, solver, domain, data, new_active_indices):
+    def learn_partial(self, solver, domain, data, labels, new_active_indices):
         raise NotImplementedError()

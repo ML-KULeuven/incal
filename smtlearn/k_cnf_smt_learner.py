@@ -1,9 +1,12 @@
 from __future__ import print_function
 
+import numpy as np
 import pysmt.shortcuts as smt
 from pysmt.typing import REAL
+from typing import Set
 
-from incremental_learner import IncrementalLearner
+from .incremental_learner import IncrementalLearner
+from pywmi import Domain
 
 
 class KCnfSmtLearner(IncrementalLearner):
@@ -13,7 +16,7 @@ class KCnfSmtLearner(IncrementalLearner):
         self.half_space_count = half_space_count
         self.allow_negations = allow_negations
 
-    def learn_partial(self, solver, domain, data, new_active_indices):
+    def learn_partial(self, solver, domain: Domain, data: np.ndarray, labels: np.ndarray, new_active_indices: Set):
         # Constants
         n_b_original = len(domain.bool_vars)
         n_b = n_b_original * 2
@@ -23,11 +26,11 @@ class KCnfSmtLearner(IncrementalLearner):
         n_h = n_h_original * 2 if self.allow_negations else n_h_original
 
         n_c = self.conjunction_count
-        n_d = len(data)
+        n_d = data.shape[0]
 
-        real_features = [[row[v] for v in domain.real_vars] for row, _ in data]
-        bool_features = [[row[v] for v in domain.bool_vars] for row, _ in data]
-        labels = [row[1] for row in data]
+        real_indices = np.array([domain.var_types[v] == smt.REAL for v in domain.variables])
+        real_features = data[:, real_indices]
+        bool_features = data[:, np.logical_not(real_indices)]
 
         # Variables
         a_hr = [[smt.Symbol("a_hr[{}][{}]".format(h, r), REAL) for r in range(n_r)] for h in range(n_h_original)]
@@ -41,7 +44,7 @@ class KCnfSmtLearner(IncrementalLearner):
 
         # Constraints
         for i in new_active_indices:
-            x_r, x_b, label = real_features[i], bool_features[i], labels[i]
+            x_r, x_b, label = [float(val) for val in real_features[i]], bool_features[i], labels[i]
 
             for h in range(n_h_original):
                 sum_coefficients = smt.Plus([a_hr[h][r] * smt.Real(x_r[r]) for r in range(n_r)])
