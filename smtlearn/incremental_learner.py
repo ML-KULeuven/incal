@@ -44,7 +44,7 @@ class IncrementalLearner(Learner):
                 solving_time = time.time() - solving_start
 
                 selection_start = time.time()
-                new_active_indices = list(self.selection_strategy.select_active(domain, data, formula, all_active_indices))
+                new_active_indices = list(self.selection_strategy.select_active(domain, data, labels, formula, all_active_indices))
                 active_indices = new_active_indices
                 all_active_indices += active_indices
                 selection_time = time.time() - selection_start
