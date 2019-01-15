@@ -82,6 +82,8 @@ def prepare_smt_lib_benchmark():
             shutil.copyfileobj(response, out_file)
     if not os.path.exists(qf_lra_folder):
         print("Extracting ZIP file")
+        print(checksum(zip_file))
+        print(zip_checksum)
         if checksum(zip_file) != zip_checksum:
             raise RuntimeError("Corrupted file download")
         with zipfile.ZipFile(zip_file, 'r') as zip_ref:
