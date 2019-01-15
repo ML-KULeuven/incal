@@ -76,10 +76,12 @@ def prepare_smt_lib_benchmark():
     zip_checksum = 'd0031a9e1799f78e72951aa4bacedaff7c0d027905e5de29b5980083b9c51138def165cc18fff205c1cdd0ef60d5d95cf179f0d82ec41ba489acf4383f3e783c'
     qf_lra_folder = os.path.join(benchmark_folder, "QF_LRA")
     if not os.path.exists(qf_lra_folder) and not os.path.exists(zip_file):
+        print("Downloading ZIP file")
         url = "http://smt-lib.loria.fr/zip/QF_LRA.zip"
         with urllib.request.urlopen(url) as response, open(zip_file, 'wb') as out_file:
             shutil.copyfileobj(response, out_file)
     if not os.path.exists(qf_lra_folder):
+        print("Extracting ZIP file")
         if checksum(zipfile) != zip_checksum:
             raise RuntimeError("Corrupted file download")
         with zipfile.ZipFile(zip_file, 'r') as zip_ref:
@@ -121,6 +123,7 @@ def prepare_smt_lib_benchmark():
         pysmt.environment.get_env().enable_infix_notation = True
 
         if not os.path.exists(density_filename):
+            print("Importing {}".format(name))
             try:
                 domain, formula = import_problem(filename)
                 Density(domain, formula, smt.Real(1.0)).export_to(density_filename)
@@ -130,6 +133,7 @@ def prepare_smt_lib_benchmark():
 
         keys = ["real_variables_count", "bool_variables_count", "operators", "half_spaces"]
         if any(k not in entry for k in keys) and (domain is None or formula is None):
+            print("Loading {}".format(name))
             density = Density.import_from(density_filename)
             domain = density.domain
             formula = density.support
@@ -184,6 +188,7 @@ def prepare_ratios():
     bounds_pool = [(-1, 1), (-10, 10), (-100, 100), (-1000, 1000)]
     ratios = dict()
     for name, entry, density_filename in select_benchmark_files(lambda e: "bounds" not in e and benchmark_filter(e)):
+        print("Finding ratios for {}".format(name))
         pysmt.environment.push_env()
         pysmt.environment.get_env().enable_infix_notation = True
 
@@ -229,7 +234,7 @@ def prepare_samples(n, sample_size):
                ("samples" not in _entry or any(len([s for s in _entry["samples"] if s["sample_size"] == sample_size and s["bounds"] == _bounds[0]]) < n for _bounds in _entry["bounds"] if 0.2 <= _bounds[1] <= 0.8))
 
     for name, entry, filename in select_benchmark_files(sample_filter):
-        print(name)
+        print("Creating samples for {}".format(name))
         pysmt.environment.push_env()
         pysmt.environment.get_env().enable_infix_notation = True
 
