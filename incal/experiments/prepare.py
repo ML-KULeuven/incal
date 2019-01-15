@@ -77,7 +77,7 @@ def prepare_smt_lib_benchmark():
                      '8aa31ada44bbb6705ce58f1f50870da4f3b2d2d27065f3c5c6a17bd484a4cb7eab0c1d55a8d78e48217e66c5b2d876c0708516fb8a383d1ea82a6d4f1278d476']
     qf_lra_folder = os.path.join(benchmark_folder, "QF_LRA")
     if not os.path.exists(qf_lra_folder) and not os.path.exists(zip_file):
-        print("Downloading ZIP file")
+        print("Downloading ZIP file to {}".format(zip_file))
         url = "http://smt-lib.loria.fr/zip/QF_LRA.zip"
         with urllib.request.urlopen(url) as response, open(zip_file, 'wb') as out_file:
             shutil.copyfileobj(response, out_file)
