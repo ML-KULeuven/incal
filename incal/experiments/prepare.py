@@ -58,7 +58,7 @@ def fix_zip_file(zip_file):
         f.truncate()
         f.close()
     else:
-        raise RuntimeError()
+        pass
 
 
 def checksum(filename):
