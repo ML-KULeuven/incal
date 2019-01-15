@@ -48,6 +48,19 @@ def get_summary_file():
     return os.path.join(get_benchmark_dir(), "qf_lra_summary.pickle")
 
 
+# https://stackoverflow.com/a/11385480/253387
+def fix_zip_file(zip_file):
+    f = open(zip_file, 'r+b')
+    data = f.read()
+    pos = data.find('\x50\x4b\x05\x06')  # End of central directory signature
+    if pos > 0:
+        f.seek(pos + 22)  # size of 'ZIP end of central directory record'
+        f.truncate()
+        f.close()
+    else:
+        raise RuntimeError()
+
+
 def checksum(filename):
     hash_engine = hashlib.sha512()
     with open(filename, "rb") as f:
@@ -73,8 +86,9 @@ def prepare_smt_lib_benchmark():
         os.makedirs(benchmark_folder)
 
     zip_file = os.path.join(benchmark_folder, "qf_lra.zip")
-    zip_checksums = ['d0031a9e1799f78e72951aa4bacedaff7c0d027905e5de29b5980083b9c51138def165cc18fff205c1cdd0ef60d5d95cf179f0d82ec41ba489acf4383f3e783c',
-                     '8aa31ada44bbb6705ce58f1f50870da4f3b2d2d27065f3c5c6a17bd484a4cb7eab0c1d55a8d78e48217e66c5b2d876c0708516fb8a383d1ea82a6d4f1278d476']
+    zip_checksums = [
+        'd0031a9e1799f78e72951aa4bacedaff7c0d027905e5de29b5980083b9c51138def165cc18fff205c1cdd0ef60d5d95cf179f0d82ec41ba489acf4383f3e783c']  # ,
+        #'8aa31ada44bbb6705ce58f1f50870da4f3b2d2d27065f3c5c6a17bd484a4cb7eab0c1d55a8d78e48217e66c5b2d876c0708516fb8a383d1ea82a6d4f1278d476']
     qf_lra_folder = os.path.join(benchmark_folder, "QF_LRA")
     if not os.path.exists(qf_lra_folder) and not os.path.exists(zip_file):
         print("Downloading ZIP file to {}".format(zip_file))
@@ -84,7 +98,9 @@ def prepare_smt_lib_benchmark():
     if not os.path.exists(qf_lra_folder):
         print("Extracting ZIP file {}".format(zip_file))
         if checksum(zip_file) not in zip_checksums:
-            raise RuntimeError("Corrupted file download")
+            fix_zip_file(zip_file)
+            if checksum(zip_file) not in zip_checksums:
+                raise RuntimeError("Corrupted file download")
         with zipfile.ZipFile(zip_file, 'r') as zip_ref:
             zip_ref.extractall(benchmark_folder)
 
@@ -170,8 +186,8 @@ def select_benchmark_files(entry_filter):
 
 
 def benchmark_filter(entry):
-    return "real_variables_count" in entry and entry["real_variables_count"] + entry["bool_variables_count"] <= 10 and\
-            "=" not in entry["operators"]
+    return "real_variables_count" in entry and entry["real_variables_count"] + entry["bool_variables_count"] <= 10 and \
+           "=" not in entry["operators"]
 
 
 def edit_summary(callback):
@@ -227,12 +243,14 @@ def prepare_ratios():
 def prepare_samples(n, sample_size):
     samples_dir = get_benchmark_samples_dir()
 
-    seeds = [random.randint(0, 2**32-1) for _ in range(n)]
+    seeds = [random.randint(0, 2 ** 32 - 1) for _ in range(n)]
     samples_dict = dict()
 
     def sample_filter(_entry):
-        return "bounds" in _entry and benchmark_filter(_entry) and\
-               ("samples" not in _entry or any(len([s for s in _entry["samples"] if s["sample_size"] == sample_size and s["bounds"] == _bounds[0]]) < n for _bounds in _entry["bounds"] if 0.2 <= _bounds[1] <= 0.8))
+        return "bounds" in _entry and benchmark_filter(_entry) and \
+               ("samples" not in _entry or any(len(
+                   [s for s in _entry["samples"] if s["sample_size"] == sample_size and s["bounds"] == _bounds[0]]) < n
+                                               for _bounds in _entry["bounds"] if 0.2 <= _bounds[1] <= 0.8))
 
     for name, entry, filename in select_benchmark_files(sample_filter):
         print("Creating samples for {}".format(name))
