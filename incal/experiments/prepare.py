@@ -50,15 +50,14 @@ def get_summary_file():
 
 # https://stackoverflow.com/a/11385480/253387
 def fix_zip_file(zip_file):
-    f = open(zip_file, 'r+b')
-    data = f.read()
-    pos = data.find(b'\x50\x4b\x05\x06')  # End of central directory signature
-    if pos > 0:
-        f.seek(pos + 22)  # size of 'ZIP end of central directory record'
-        f.truncate()
-        f.close()
-    else:
-        pass
+    with open(zip_file, 'r+b') as f:
+        data = f.read()
+        pos = data.find(b'\x50\x4b\x05\x06')  # End of central directory signature
+        if pos > 0:
+            f.seek(pos + 22)  # size of 'ZIP end of central directory record'
+            f.truncate()
+        else:
+            pass
 
 
 def checksum(filename):
