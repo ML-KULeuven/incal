@@ -19,7 +19,6 @@ setup(
         "console_scripts": [
             "incal-experiments = incal.data.cli:main",
             "incal-track = incal.data.learn:track",
-            "incal = incal.cli:main"
         ]
     }
 )
