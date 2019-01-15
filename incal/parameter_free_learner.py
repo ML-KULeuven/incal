@@ -1,7 +1,7 @@
 import heapq
 
 import time
-import pysmt
+from pysmt.exceptions import InternalSolverError
 
 
 class ParameterFrontier(object):
@@ -47,7 +47,7 @@ def learn_bottom_up(data, labels, learn_f, w_k, w_h, init_k=1, init_h=0, max_k=N
         try:
             solution = learn_f(data, labels, i, k, h)
             # print("Found solution after {:.2f}s".format(time.time() - start))
-        except pysmt.exceptions.InternalSolverError:
+        except InternalSolverError:
             # print("Found no solution after {:.2f}s".format(time.time() - start))
             pass
         if max_k is None or k + 1 <= max_k:
