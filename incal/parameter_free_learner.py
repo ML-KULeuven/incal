@@ -50,6 +50,11 @@ def learn_bottom_up(data, labels, learn_f, w_k, w_h, init_k=1, init_h=0, max_k=N
         except InternalSolverError:
             # print("Found no solution after {:.2f}s".format(time.time() - start))
             pass
+        except Exception as e:
+            if "Z3Exception" in str(type(Exception)):
+                pass
+            else:
+                raise e
         if max_k is None or k + 1 <= max_k:
             frontier.push(k + 1, h)
         if max_h is None or h + 1 <= max_h:
