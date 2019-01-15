@@ -52,6 +52,7 @@ def learn_bottom_up(data, labels, learn_f, w_k, w_h, init_k=1, init_h=0, max_k=N
             pass
         except Exception as e:
             if "Z3Exception" in str(type(e)):
+                print(e)
                 pass
             else:
                 raise e
