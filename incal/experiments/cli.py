@@ -1,7 +1,7 @@
 import argparse
 
-from incal.data.learn import learn_benchmark
-from incal.data.prepare import prepare_smt_lib_benchmark, prepare_ratios, prepare_samples, prepare_synthetic
+from .learn import learn_benchmark
+from .prepare import prepare_smt_lib_benchmark, prepare_ratios, prepare_samples, prepare_synthetic
 from incal.learn import LearnOptions
 
 

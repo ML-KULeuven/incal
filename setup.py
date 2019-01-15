@@ -17,8 +17,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         "console_scripts": [
-            "incal-experiments = incal.data.cli:main",
-            "incal-track = incal.data.learn:track",
+            "incal-experiments = incal.experiments.cli:main",
+            "incal-track = incal.experiments.learn:track",
         ]
     }
 )
