@@ -1,7 +1,6 @@
 import heapq
 
 import time
-from z3.z3types import Z3Exception
 import pysmt
 
 
@@ -21,11 +20,12 @@ class ParameterFrontier(object):
         return k, h
 
 
-def learn_bottom_up(data, learn_f, w_k, w_h, init_k=1, init_h=0, max_k=None, max_h=None):
+def learn_bottom_up(data, labels, learn_f, w_k, w_h, init_k=1, init_h=0, max_k=None, max_h=None):
     """
     Learns a CNF(k, h) SMT formula phi using the learner encapsulated in init_learner such that
     C(k, h) = w_k * k + w_h * h is minimal.
     :param data: List of tuples of assignments and labels
+    :param labels: Array of labels
     :param learn_f: Function called with data, k and h: learn_f(data, k, h)
     :param w_k: The weight assigned to k
     :param w_h: The weight assigned to h
@@ -42,15 +42,14 @@ def learn_bottom_up(data, learn_f, w_k, w_h, init_k=1, init_h=0, max_k=None, max
     while solution is None:
         i += 1
         k, h = frontier.pop()
-        print("Attempting to solve with k={} and h={}".format(k, h))
+        # print("Attempting to solve with k={} and h={}".format(k, h))
         start = time.time()
         try:
-            solution = learn_f(data, i, k, h)
-            print("Found solution after {:.2f}s".format(time.time() - start))
-        except Z3Exception:
-            print("Found no solution after {:.2f}s".format(time.time() - start))
+            solution = learn_f(data, labels, i, k, h)
+            # print("Found solution after {:.2f}s".format(time.time() - start))
         except pysmt.exceptions.InternalSolverError:
-            print("Found no solution after {:.2f}s".format(time.time() - start))
+            # print("Found no solution after {:.2f}s".format(time.time() - start))
+            pass
         if max_k is None or k + 1 <= max_k:
             frontier.push(k + 1, h)
         if max_h is None or h + 1 <= max_h:

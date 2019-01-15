@@ -15,4 +15,11 @@ setup(
     install_requires=['pywmi', 'numpy', 'typing', 'pysmt', 'matplotlib', 'scikit-learn'],
     setup_requires=['pytest-runner'],
     tests_require=['pytest'],
+    entry_points={
+        "console_scripts": [
+            "incal-experiments = incal.data.cli:main",
+            "incal-track = incal.data.learn:track",
+            "incal = incal.cli:main"
+        ]
+    }
 )
