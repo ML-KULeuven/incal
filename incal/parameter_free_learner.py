@@ -51,7 +51,7 @@ def learn_bottom_up(data, labels, learn_f, w_k, w_h, init_k=1, init_h=0, max_k=N
             # print("Found no solution after {:.2f}s".format(time.time() - start))
             pass
         except Exception as e:
-            if "Z3Exception" in str(type(Exception)):
+            if "Z3Exception" in str(type(e)):
                 pass
             else:
                 raise e
