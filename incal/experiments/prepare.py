@@ -82,7 +82,7 @@ def prepare_smt_lib_benchmark():
         with urllib.request.urlopen(url) as response, open(zip_file, 'wb') as out_file:
             shutil.copyfileobj(response, out_file)
     if not os.path.exists(qf_lra_folder):
-        print("Extracting ZIP file")
+        print("Extracting ZIP file {}".format(zip_file))
         if checksum(zip_file) not in zip_checksums:
             raise RuntimeError("Corrupted file download")
         with zipfile.ZipFile(zip_file, 'r') as zip_ref:
