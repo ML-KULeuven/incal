@@ -1,8 +1,12 @@
 import argparse
 
+import numpy as np
+from pywmi.smt_print import pretty_print
+
 from .learn import learn_benchmark
 from .prepare import prepare_smt_lib_benchmark, prepare_ratios, prepare_samples, prepare_synthetic
 from incal.learn import LearnOptions
+from . import examples
 
 
 def main():
@@ -31,11 +35,24 @@ def main():
         elif args.source == synthetic_name:
             prepare_synthetic()
     elif args.task == "learn":
+        learn_options.parse_arguments(args)
         if args.source == smt_lib_name:
-            learn_options.parse_arguments(args)
             learn_benchmark(args.runs, args.sample_size, learn_options)
         elif args.source == synthetic_name:
             pass
+        elif args.source.startswith("ex"):
+            example_name = args.source.split(":", 1)[1]
+            domain, formula = examples.get_by_name(example_name)
+            np.random.seed(1)
+            from pywmi.sample import uniform
+            samples = uniform(domain, args.sample_size)
+            from pywmi import evaluate
+            labels = evaluate(domain, formula, samples)
+            learn_options.set_value("domain", domain, False)
+            learn_options.set_value("data", samples, False)
+            learn_options.set_value("labels", labels, False)
+            (formula, k, h), duration = learn_options.call(True)
+            print("[{:.2f}s] Learned formula (k={}, h={}): {}".format(duration, k, h, pretty_print(formula)))
 
 
 if __name__ == "__main__":

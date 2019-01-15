@@ -265,19 +265,19 @@ def prepare_samples(n, sample_size, reset):
         pysmt.environment.get_env().enable_infix_notation = True
 
         density = Density.import_from(filename)
-        samples_dict[name] = []  if reset else entry.get("samples", [])
+        samples_dict[name] = [] if reset else entry.get("samples", [])
 
         for i, (bounds, ratio) in enumerate(entry["bounds"]):
             if not (0.2 <= ratio <= 0.8):
                 continue
 
             print(i, bounds, ratio)
-            previous_samples = [] if reset else [s for s in entry.get("samples", [])
-                                                 if s["sample_size"] == sample_size and s["bounds"] == bounds]
+            previous_samples = [] if reset else ([s for s in entry.get("samples", [])
+                                                 if s["sample_size"] == sample_size and s["bounds"] == bounds])
             bounded_domain = Domain(density.domain.variables, density.domain.var_types, bounds)
 
-            for i in range(n - len(previous_samples)):
-                seed = seeds[i]
+            for j in range(n - len(previous_samples)):
+                seed = seeds[j]
                 samples_filename = "{}{}{}.{}.{}.{}.sample.npy".format(samples_dir, os.path.sep, name, sample_size,
                                                                        seed, i)
                 labels_filename = "{}{}{}.{}.{}.{}.labels.npy".format(samples_dir, os.path.sep, name, sample_size, seed,

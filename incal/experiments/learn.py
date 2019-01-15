@@ -15,6 +15,7 @@ def get_bound_volume(bounds):
         size *= ub_lb[1] - ub_lb[0]
     return size
 
+
 def rel_ratio(ratio):
     return abs(0.5 - ratio)
 

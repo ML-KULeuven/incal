@@ -19,8 +19,8 @@ class LearnOptions(Options):
         self.add_option("data", str, None, LearnOptions.np_extraction)
         self.add_option("labels", str, None, LearnOptions.np_extraction)
 
-        self.add_option("learner", str, "cnf", Options.convert_dict(
-            cnf=LearnOptions.cnf_factory
+        self.add_option("learner", (str, str), ("cnf", "-"), Options.convert_dict(
+            cnf=LearnOptions.cnf_factory_wrap
         ), arg_name="learner_factory")
         self.add_option("initial_strategy", (str, int), ("random", 20), Options.convert_dict(
             random=LearnOptions.initial_random
@@ -44,8 +44,10 @@ class LearnOptions(Options):
         return np.load(filename)
 
     @staticmethod
-    def cnf_factory(k, h, selection_strategy):
-        return KCnfSmtLearner(k, h, selection_strategy)
+    def cnf_factory_wrap(symmetries):
+        def cnf_factory(k, h, selection_strategy):
+            return KCnfSmtLearner(k, h, selection_strategy, symmetries=symmetries)
+        return cnf_factory
 
     @staticmethod
     def initial_random(count):

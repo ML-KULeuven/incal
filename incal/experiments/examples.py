@@ -112,3 +112,22 @@ def ice_cream_problem():
              & (~weekend | (chocolate + 0.7 * banana <= 0.340))
 
     return domain, theory, "ice_cream"
+
+
+def get_all():
+    return [
+        simple_checker_problem(),
+        simple_checker_problem_cnf(),
+        checker_problem(),
+        simple_univariate_problem(),
+        shared_hyperplane_problem(),
+        cross_problem(),
+        bool_xor_problem(),
+        ice_cream_problem(),
+    ]
+
+
+def get_by_name(name):
+    for t in get_all():
+        if t[2] == name:
+            return t[0], t[1]
