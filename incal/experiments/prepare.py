@@ -73,7 +73,8 @@ def prepare_smt_lib_benchmark():
         os.makedirs(benchmark_folder)
 
     zip_file = os.path.join(benchmark_folder, "qf_lra.zip")
-    zip_checksum = 'd0031a9e1799f78e72951aa4bacedaff7c0d027905e5de29b5980083b9c51138def165cc18fff205c1cdd0ef60d5d95cf179f0d82ec41ba489acf4383f3e783c'
+    zip_checksums = ['d0031a9e1799f78e72951aa4bacedaff7c0d027905e5de29b5980083b9c51138def165cc18fff205c1cdd0ef60d5d95cf179f0d82ec41ba489acf4383f3e783c',
+                     '8aa31ada44bbb6705ce58f1f50870da4f3b2d2d27065f3c5c6a17bd484a4cb7eab0c1d55a8d78e48217e66c5b2d876c0708516fb8a383d1ea82a6d4f1278d476']
     qf_lra_folder = os.path.join(benchmark_folder, "QF_LRA")
     if not os.path.exists(qf_lra_folder) and not os.path.exists(zip_file):
         print("Downloading ZIP file")
@@ -82,9 +83,7 @@ def prepare_smt_lib_benchmark():
             shutil.copyfileobj(response, out_file)
     if not os.path.exists(qf_lra_folder):
         print("Extracting ZIP file")
-        print(checksum(zip_file))
-        print(zip_checksum)
-        if checksum(zip_file) != zip_checksum:
+        if checksum(zip_file) not in zip_checksums:
             raise RuntimeError("Corrupted file download")
         with zipfile.ZipFile(zip_file, 'r') as zip_ref:
             zip_ref.extractall(benchmark_folder)
