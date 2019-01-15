@@ -1,10 +1,11 @@
 import random
 
 import numpy as np
+from incal.observe.inc_logging import LoggingObserver
 from pysmt.fnode import FNode
 from pywmi import smt_to_nested
 from pywmi.domain import Density, Domain
-from typing import Tuple
+from typing import Tuple, Optional
 
 from .parameter_free_learner import learn_bottom_up
 from .violations.core import RandomViolationsStrategy
@@ -32,6 +33,7 @@ class LearnOptions(Options):
         self.add_option("initial_h", int, 0)
         self.add_option("weight_k", float, 1)
         self.add_option("weight_h", float, 1)
+        self.add_option("log", str)
         # self.add_option("max_k", int, None)
         # self.add_option("max_h", int, None)
 
@@ -90,11 +92,12 @@ def learn(
         labels: np.ndarray,
         learner_factory: callable,
         initial_strategy: callable,
-        selection_strategy: callable,
+        selection_strategy: object,
         initial_k: int,
         initial_h: int,
         weight_k: float,
-        weight_h: float
+        weight_h: float,
+        log: Optional[str]=None
 ) -> Tuple[FNode, int, int]:
     """
     Learn a formula that separates the positive and negative examples
@@ -109,7 +112,8 @@ def learn(
         learner = learner_factory(_k, _h, selection_strategy)
         initial_indices = initial_strategy(list(range(len(data))))
         # log_file = os.path.join(log_dir, "{}_{}_{}.txt".format(problem_name, _k, _h))
-        # learner.add_observer(inc_logging.LoggingObserver(log_file, seed, True, violations_strategy))
+        if log is not None:
+            learner.add_observer(LoggingObserver(log, _k, _h, None, False, selection_strategy))
         return learner.learn(domain, _data, _labels, initial_indices)
 
     return learn_bottom_up(data, labels, learn_inc, weight_k, weight_h, initial_k, initial_h, None, None)

@@ -73,11 +73,15 @@ def learn_benchmark(runs, sample_size, learn_options: LearnOptions):
         detail_learn_options.labels = selected_sample["labels_filename"]
         export_file = "{}{sep}{}.{}.{}.result".format(get_benchmark_results_dir(), name, selected_sample["sample_size"],
                                                       selected_sample["seed"], sep=os.path.sep)
+        log_file = "{}{sep}{}.{}.{}.log".format(get_benchmark_results_dir(), name, selected_sample["sample_size"],
+                                                      selected_sample["seed"], sep=os.path.sep)
         if not os.path.exists(os.path.dirname(export_file)):
             os.makedirs(os.path.dirname(export_file))
-        commands.append("incal-track {} --export {}".format(detail_learn_options.print_arguments(), export_file))
+        commands.append("incal-track {} --export {} --log {}"
+                        .format(detail_learn_options.print_arguments(), export_file, log_file))
 
-    run_commands(commands)
+    print(commands[:1])
+    run_commands(commands[:1])
 
 
 def track():
