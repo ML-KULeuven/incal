@@ -80,8 +80,7 @@ def learn_benchmark(runs, sample_size, learn_options: LearnOptions):
         commands.append("incal-track {} --export {} --log {}"
                         .format(detail_learn_options.print_arguments(), export_file, log_file))
 
-    print(commands[:1])
-    run_commands(commands[:1])
+    run_commands(commands)
 
 
 def track():
