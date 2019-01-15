@@ -87,7 +87,7 @@ def prepare_smt_lib_benchmark():
     zip_file = os.path.join(benchmark_folder, "qf_lra.zip")
     zip_checksums = [
         'd0031a9e1799f78e72951aa4bacedaff7c0d027905e5de29b5980083b9c51138def165cc18fff205c1cdd0ef60d5d95cf179f0d82ec41ba489acf4383f3e783c']  # ,
-        #'8aa31ada44bbb6705ce58f1f50870da4f3b2d2d27065f3c5c6a17bd484a4cb7eab0c1d55a8d78e48217e66c5b2d876c0708516fb8a383d1ea82a6d4f1278d476']
+    # '8aa31ada44bbb6705ce58f1f50870da4f3b2d2d27065f3c5c6a17bd484a4cb7eab0c1d55a8d78e48217e66c5b2d876c0708516fb8a383d1ea82a6d4f1278d476']
     qf_lra_folder = os.path.join(benchmark_folder, "QF_LRA")
     if not os.path.exists(qf_lra_folder) and not os.path.exists(zip_file):
         print("Downloading ZIP file to {}".format(zip_file))
@@ -239,17 +239,25 @@ def prepare_ratios():
         pickle.dump(summary, summary_file_reference)
 
 
-def prepare_samples(n, sample_size):
+def prepare_samples(n, sample_size, reset):
     samples_dir = get_benchmark_samples_dir()
 
     seeds = [random.randint(0, 2 ** 32 - 1) for _ in range(n)]
     samples_dict = dict()
 
     def sample_filter(_entry):
-        return "bounds" in _entry and benchmark_filter(_entry) and \
-               ("samples" not in _entry or any(len(
-                   [s for s in _entry["samples"] if s["sample_size"] == sample_size and s["bounds"] == _bounds[0]]) < n
-                                               for _bounds in _entry["bounds"] if 0.2 <= _bounds[1] <= 0.8))
+        if "bounds" in _entry and benchmark_filter(_entry):
+            if "samples" not in _entry["samples"]:
+                return True
+            else:
+                return reset or any(
+                    len([
+                        s for s in _entry["samples"]
+                        if s["sample_size"] == sample_size and s["bounds"] == _bounds[0]]
+                    ) < n
+                    for _bounds in _entry["bounds"] if 0.2 <= _bounds[1] <= 0.8
+                )
+        return False
 
     for name, entry, filename in select_benchmark_files(sample_filter):
         print("Creating samples for {}".format(name))
@@ -257,21 +265,23 @@ def prepare_samples(n, sample_size):
         pysmt.environment.get_env().enable_infix_notation = True
 
         density = Density.import_from(filename)
-        samples_dict[name] = entry.get("samples", [])
+        samples_dict[name] = []  if reset else entry.get("samples", [])
 
-        for bounds, ratio in entry["bounds"]:
+        for i, (bounds, ratio) in enumerate(entry["bounds"]):
             if not (0.2 <= ratio <= 0.8):
                 continue
 
-            print(bounds, ratio)
-            previous_samples = [s for s in entry.get("samples", []) if
-                                s["sample_size"] == sample_size and s["bounds"] == bounds]
+            print(i, bounds, ratio)
+            previous_samples = [] if reset else [s for s in entry.get("samples", [])
+                                                 if s["sample_size"] == sample_size and s["bounds"] == bounds]
             bounded_domain = Domain(density.domain.variables, density.domain.var_types, bounds)
 
             for i in range(n - len(previous_samples)):
                 seed = seeds[i]
-                samples_filename = "{}{}{}.{}.{}.sample.npy".format(samples_dir, os.path.sep, name, sample_size, seed)
-                labels_filename = "{}{}{}.{}.{}.labels.npy".format(samples_dir, os.path.sep, name, sample_size, seed)
+                samples_filename = "{}{}{}.{}.{}.{}.sample.npy".format(samples_dir, os.path.sep, name, sample_size,
+                                                                       seed, i)
+                labels_filename = "{}{}{}.{}.{}.{}.labels.npy".format(samples_dir, os.path.sep, name, sample_size, seed,
+                                                                      i)
 
                 if not os.path.exists(os.path.dirname(samples_filename)):
                     os.makedirs(os.path.dirname(samples_filename))

@@ -16,6 +16,7 @@ def main():
 
     task_parsers = parser.add_subparsers(dest="task")
     prepare_parser = task_parsers.add_parser("prepare")
+    prepare_parser.add_argument("--reset_samples", type=bool, default=False)
     learn_parser = task_parsers.add_parser("learn")
 
     learn_options = LearnOptions()
@@ -26,7 +27,7 @@ def main():
         if args.source == smt_lib_name:
             prepare_smt_lib_benchmark()
             prepare_ratios()
-            prepare_samples(100, 10000)
+            prepare_samples(args.runs, args.sample_size, args.reset_samples)
         elif args.source == synthetic_name:
             prepare_synthetic()
     elif args.task == "learn":
