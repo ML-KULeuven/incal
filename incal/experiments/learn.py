@@ -1,6 +1,5 @@
-import json
 import os
-import pickle
+import warnings
 
 from incal.util.options import Options, Experiment
 
@@ -84,8 +83,11 @@ def learn_benchmark(runs, sample_size, learn_options: LearnOptions):
 
 
 def track():
-    config = Options()
-    config.add_option("export", str)
-    experiment = Experiment(LearnOptions(), LearnResults(), config)
-    experiment.execute_from_command_line()
-    experiment.save(experiment.config.export)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+
+        config = Options()
+        config.add_option("export", str)
+        experiment = Experiment(LearnOptions(), LearnResults(), config)
+        experiment.execute_from_command_line()
+        experiment.save(experiment.config.export)
