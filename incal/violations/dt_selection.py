@@ -14,23 +14,23 @@ class DecisionTreeSelection(MaxViolationsStrategy):
 
     def select_active(self, domain, data, labels, formula, active_indices):
         if self.weights is None:
-            self.weights = get_distances(domain, data)
+            self.weights = [min(d.values()) for d in get_distances(domain, data, labels)]
         return super().select_active(domain, data, labels, formula, active_indices)
 
 
-def convert(domain, data):
-    def _convert(var, val):
-        if domain.var_types[var] == smt.BOOL:
-            return 1 if val else 0
-        elif domain.var_types[var] == smt.REAL:
-            return float(val)
+def convert(domain, data, labels):
+    # def _convert(var, val):
+    #     if domain.var_types[var] == smt.BOOL:
+    #         return 1 if val else 0
+    #     elif domain.var_types[var] == smt.REAL:
+    #         return float(val)
 
-    feature_matrix = []
-    labels = []
-    for instance, label in data:
-        feature_matrix.append([_convert(v, instance[v]) for v in domain.variables])
-        labels.append(1 if label else 0)
-    return feature_matrix, labels
+    # feature_matrix = []
+    # labels = []
+    # for instance, label in data:
+    #     feature_matrix.append([_convert(v, instance[v]) for v in domain.variables])
+    #     labels.append(1 if label else 0)
+    return data, labels
 
 
 def learn_dt(feature_matrix, labels, **kwargs):
@@ -71,17 +71,12 @@ def get_distances_dt(dt, domain, feature_matrix):
     return distances
 
 
-def get_distances(domain, data):
-    feature_matrix, labels = convert(domain, data)
-    dt = learn_dt(feature_matrix, labels)
-    return get_distances_dt(dt, domain, feature_matrix)
+def get_distances(domain, data, labels):
+    # feature_matrix, labels = convert(domain, data, labels)
+    dt = learn_dt(data, labels)
+    return get_distances_dt(dt, domain, data)
 
 
 if __name__ == "__main__":
-    def main():
-        problem = checker_problem()
-        data = generator.get_problem_samples(problem, 10, 1)
-        print(get_distances(problem.domain, data))
-
-    main()
+    pass
 
