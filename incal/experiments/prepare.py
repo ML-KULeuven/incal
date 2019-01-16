@@ -2,6 +2,7 @@ import argparse
 import glob
 import hashlib
 import itertools
+import json
 import os
 import pickle
 import random
@@ -14,10 +15,11 @@ from collections import defaultdict
 from typing import Tuple
 
 import numpy as np
+import pickledb
 import pysmt.shortcuts as smt
 import pysmt.environment
-from pywmi import Domain, smt_to_nested, evaluate, RejectionEngine
-from pywmi.domain import Density
+from pywmi import Domain, smt_to_nested, evaluate, RejectionEngine, export_domain, nested_to_smt
+from pywmi.domain import Density, import_domain
 from pywmi.sample import uniform
 
 from .find_hyperplanes import HalfSpaceWalker
@@ -169,8 +171,8 @@ def prepare_smt_lib_benchmark():
         pickle.dump(summary, summary_file_ref)
 
 
-def select_benchmark_files(entry_filter):
-    summary_file = get_summary_file()
+def select_benchmark_files(entry_filter, summary_file=None):
+    summary_file = summary_file or get_summary_file()
 
     with open(summary_file, "rb") as summary_file_ref:
         summary = pickle.load(summary_file_ref)
@@ -310,5 +312,69 @@ def prepare_samples(n, sample_size, reset):
     edit_summary(edit)
 
 
-def prepare_synthetic():
-    pass
+def get_synthetic_db(directory, auto_dump=True):
+    db_filename = os.path.join(directory, 'synthetic.db')
+    print(db_filename)
+    return pickledb.load(db_filename, auto_dump)
+
+
+def prepare_synthetic(input_directory, output_directory, runs, sample_size):
+    seeds = [random.randint(0, 2 ** 32 - 1) for _ in range(runs)]
+
+    db = get_synthetic_db(output_directory, True)
+    os.makedirs(output_directory)
+    for filename in glob.glob("{}/**/synthetics*.txt".format(input_directory), recursive=True):
+        pysmt.environment.push_env()
+        pysmt.environment.get_env().enable_infix_notation = True
+        with open(filename) as file_reference:
+            flat = json.load(file_reference)
+
+        name = flat["synthetic_problem"]["problem"]["name"]
+        print(name)
+
+        if not db.exists(name):
+            domain = import_domain(flat["synthetic_problem"]["problem"]["domain"])
+            formula = nested_to_smt(flat["synthetic_problem"]["problem"]["theory"])
+            Density(domain, formula, smt.Real(1.0)).export_to(os.path.join(output_directory, "{}.density".format(name)))
+            entry = {
+                "domain": export_domain(domain),
+                "generation": {
+                    "h": flat["synthetic_problem"]["half_space_count"],
+                    "k": flat["synthetic_problem"]["formula_count"],
+                    "l": flat["synthetic_problem"]["terms_per_formula"],
+                    "structure": flat["synthetic_problem"]["cnf_or_dnf"],
+                },
+                "formula": smt_to_nested(formula),
+                "samples": []
+            }
+        else:
+            entry = dict(db.get(name))
+            domain = import_domain(entry["domain"])
+            formula = import_domain(entry["domain"])
+
+        samples = entry.get("samples", [])
+        matching_samples = []
+        for sample in samples:
+            if sample["sample_size"] == sample_size:
+                matching_samples.append(sample)
+
+        for i in range(runs - len(matching_samples)):
+            seed = seeds[len(matching_samples) + i]
+            samples_file = "{}.{}.{}.samples.npy".format(name, sample_size, seed)
+            labels_file = "{}.{}.{}.labels.npy".format(name, sample_size, seed)
+            np.random.seed(seed)
+            data = uniform(domain, sample_size)
+            np.save(os.path.join(output_directory, samples_file), data)
+            labels = evaluate(domain, formula, data)
+            np.save(os.path.join(output_directory, labels_file), labels)
+            samples.append({
+                "sample_size": sample_size,
+                "seed": seed,
+                "samples_file": samples_file,
+                "labels_file": labels_file
+            })
+
+        entry["samples"] = samples
+        db.set(name, samples)
+
+        pysmt.environment.pop_env()

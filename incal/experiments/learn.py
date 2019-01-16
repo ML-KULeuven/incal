@@ -1,6 +1,9 @@
+import glob
 import os
+import random
 import warnings
 
+from experiments.prepare import get_synthetic_db
 from incal.util.options import Options, Experiment
 
 from incal.learn import LearnOptions, LearnResults
@@ -17,6 +20,37 @@ def get_bound_volume(bounds):
 
 def rel_ratio(ratio):
     return abs(0.5 - ratio)
+
+
+def learn_synthetic(input_directory, output_directory, runs, sample_size, learn_options: LearnOptions):
+    commands = []
+
+    db = get_synthetic_db(input_directory)
+    for name in db.getall():
+        entry = db.get(name)
+        matching_samples = []
+        for sample in entry["samples"]:
+            if sample["sample_size"] == sample_size and len(matching_samples) < runs:
+                matching_samples.append(sample)
+        if len(matching_samples) != runs:
+            raise RuntimeError("Insufficient samples available, prepare more samples first")
+
+        for sample in matching_samples:
+            detail_learn_options = learn_options.copy()
+            detail_learn_options.domain = os.path.join(input_directory, "{}.density".format(name))
+            detail_learn_options.data = os.path.join(input_directory, sample["samples_file"])
+            detail_learn_options.labels = os.path.join(input_directory, sample["labels_file"])
+
+            export_file = "{}{sep}{}.{}.{}.result" \
+                .format( output_directory, name, sample_size, sample["seed"], sep=os.path.sep)
+            log_file = "{}{sep}{}.{}.{}.log" \
+                .format(output_directory, name, sample_size, sample["seed"], sep=os.path.sep)
+
+            if not os.path.exists(os.path.dirname(export_file)):
+                os.makedirs(os.path.dirname(export_file))
+
+            commands.append("incal-track {} --export {} --log {}"
+                            .format(detail_learn_options.print_arguments(), export_file, log_file))
 
 
 def learn_benchmark(runs, sample_size, learn_options: LearnOptions):
@@ -82,12 +116,22 @@ def learn_benchmark(runs, sample_size, learn_options: LearnOptions):
     run_commands(commands)
 
 
+def get_experiment(res_path=None):
+    def import_handler(parameters_dict, results_dict, config_dict):
+        for key, entry in parameters_dict.items():
+            if isinstance(entry, str):
+                index = entry.find("res/")
+                if index >= 0:
+                    parameters_dict[key] = res_path + os.path.sep + entry[index+4:]
+
+    config = Options()
+    config.add_option("export", str)
+    return Experiment(LearnOptions(), LearnResults(), config, import_handler if res_path else None)
+
+
 def track():
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-
-        config = Options()
-        config.add_option("export", str)
-        experiment = Experiment(LearnOptions(), LearnResults(), config)
+        experiment = get_experiment()
         experiment.execute_from_command_line()
         experiment.save(experiment.config.export)

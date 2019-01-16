@@ -1,4 +1,5 @@
 import json
+import os
 import time
 from typing import Union, Tuple, Any, Dict, List, Optional
 
@@ -151,10 +152,16 @@ class Results(Options):
 
 
 class Experiment(object):
-    def __init__(self, parameters: Options, results: Options, config: Optional[Options]=None):
+    def __init__(self, parameters: Options, results: Options, config: Optional[Options]=None, import_handler=None):
         self.parameters = parameters
         self.results = results
         self.config = config
+        self.import_handler = import_handler
+        self.derived = dict()
+        self.imported_from_file = None
+
+    def register_derived(self, name, callback):
+        self.derived[name] = callback
 
     def execute_from_command_line(self):
         import argparse
@@ -187,6 +194,8 @@ class Experiment(object):
 
     def import_from_dict(self, values_dict):
         parameters_dict, results_dict, config_dict = (values_dict[k] for k in ["parameters", "results", "config"])
+        if self.import_handler is not None:
+            self.import_handler(parameters_dict, results_dict, config_dict)
         self.parameters.import_from_dict(parameters_dict)
         self.results.import_from_dict(results_dict)
         if self.config and config_dict:
@@ -195,6 +204,8 @@ class Experiment(object):
     def load(self, filename):
         with open(filename, "r") as ref:
             self.import_from_dict(json.load(ref))
+        self.imported_from_file = os.path.realpath(filename)
+        return self
 
 
 

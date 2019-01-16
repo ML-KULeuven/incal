@@ -3,9 +3,19 @@
 # - For every point compute distance to the decision boundary
 import sklearn.tree as tree
 
-import generator
-from main import checker_problem
 import pysmt.shortcuts as smt
+
+from .core import MaxViolationsStrategy
+
+
+class DecisionTreeSelection(MaxViolationsStrategy):
+    def __init__(self):
+        super().__init__(1, None)
+
+    def select_active(self, domain, data, labels, formula, active_indices):
+        if self.weights is None:
+            self.weights = get_distances(domain, data)
+        return super().select_active(domain, data, labels, formula, active_indices)
 
 
 def convert(domain, data):

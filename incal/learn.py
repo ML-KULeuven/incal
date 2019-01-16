@@ -9,6 +9,7 @@ from typing import Tuple, Optional
 
 from .parameter_free_learner import learn_bottom_up
 from .violations.core import RandomViolationsStrategy
+from .violations.dt_selection import DecisionTreeSelection
 from .k_cnf_smt_learner import KCnfSmtLearner
 from .util.options import Options, Results
 
@@ -27,7 +28,8 @@ class LearnOptions(Options):
             random=LearnOptions.initial_random
         ))
         self.add_option("selection_strategy", (str, int), ("random", 10), Options.convert_dict(
-            random=LearnOptions.select_random
+            random=LearnOptions.select_random,
+            dt=LearnOptions.select_dt
         ))
         self.add_option("initial_k", int, 1)
         self.add_option("initial_h", int, 0)
@@ -60,6 +62,10 @@ class LearnOptions(Options):
     @staticmethod
     def select_random(count):
         return RandomViolationsStrategy(count)
+
+    @staticmethod
+    def select_dt(count):
+        return DecisionTreeSelection()
 
     def make_copy(self):
         return LearnOptions()

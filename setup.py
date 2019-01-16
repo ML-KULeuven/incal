@@ -12,7 +12,7 @@ setup(
     license='MIT',
     packages=find_packages(),
     zip_safe=False,
-    install_requires=['pywmi', 'numpy', 'typing', 'pysmt', 'matplotlib', 'scikit-learn'],
+    install_requires=['pywmi', 'numpy', 'typing', 'pysmt', 'matplotlib', 'scikit-learn', 'pickledb'],
     setup_requires=['pytest-runner'],
     tests_require=['pytest'],
     entry_points={
