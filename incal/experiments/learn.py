@@ -3,7 +3,7 @@ import os
 import random
 import warnings
 
-from experiments.prepare import get_synthetic_db
+from .prepare import get_synthetic_db
 from incal.util.options import Options, Experiment
 
 from incal.learn import LearnOptions, LearnResults
@@ -51,6 +51,8 @@ def learn_synthetic(input_directory, output_directory, runs, sample_size, learn_
 
             commands.append("incal-track {} --export {} --log {}"
                             .format(detail_learn_options.print_arguments(), export_file, log_file))
+
+    run_commands(commands)
 
 
 def learn_benchmark(runs, sample_size, learn_options: LearnOptions):

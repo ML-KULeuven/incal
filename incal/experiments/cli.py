@@ -3,7 +3,7 @@ import argparse
 import numpy as np
 from pywmi.smt_print import pretty_print
 
-from .learn import learn_benchmark, get_experiment
+from .learn import learn_benchmark, get_experiment, learn_synthetic
 from .prepare import prepare_smt_lib_benchmark, prepare_ratios, prepare_samples, prepare_synthetic
 from incal.learn import LearnOptions
 from . import examples
@@ -50,7 +50,7 @@ def main():
         if args.source == smt_lib_name:
             learn_benchmark(args.runs, args.sample_size, learn_options)
         elif args.source == synthetic_name:
-            pass
+            learn_synthetic(args.input_dir, args.output_dir, args.runs, args.sample_size, learn_options)
         elif args.source.startswith("ex"):
             example_name = args.source.split(":", 1)[1]
             domain, formula = examples.get_by_name(example_name)

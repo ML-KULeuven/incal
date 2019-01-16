@@ -375,6 +375,6 @@ def prepare_synthetic(input_directory, output_directory, runs, sample_size):
             })
 
         entry["samples"] = samples
-        db.set(name, samples)
+        db.set(name, entry)
 
         pysmt.environment.pop_env()
