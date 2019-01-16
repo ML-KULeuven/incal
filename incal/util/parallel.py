@@ -1,3 +1,4 @@
+import os
 import subprocess
 from multiprocessing.pool import Pool
 
@@ -8,6 +9,6 @@ def run_command(command):
     print("[complete] {}".format(command))
 
 
-def run_commands(commands):
-    pool = Pool()
+def run_commands(commands, processes=None):
+    pool = Pool(processes=processes)
     pool.map(run_command, commands)

@@ -21,6 +21,7 @@ def main():
     parser.add_argument("--runs", type=int, default=None)
     parser.add_argument("--input_dir", type=str, default=None)
     parser.add_argument("--output_dir", type=str, default=None)
+    parser.add_argument("--processes", type=int, default=None)
 
     task_parsers = parser.add_subparsers(dest="task")
     prepare_parser = task_parsers.add_parser("prepare")
@@ -48,9 +49,9 @@ def main():
     elif args.task == "learn":
         learn_options.parse_arguments(args)
         if args.source == smt_lib_name:
-            learn_benchmark(args.runs, args.sample_size, learn_options)
+            learn_benchmark(args.runs, args.sample_size, args.processes, learn_options)
         elif args.source == synthetic_name:
-            learn_synthetic(args.input_dir, args.output_dir, args.runs, args.sample_size, learn_options)
+            learn_synthetic(args.input_dir, args.output_dir, args.runs, args.sample_size, args.processes, learn_options)
         elif args.source.startswith("ex"):
             example_name = args.source.split(":", 1)[1]
             domain, formula = examples.get_by_name(example_name)
