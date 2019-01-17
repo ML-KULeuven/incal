@@ -18,4 +18,4 @@ incal-experiments smt-lib-benchmark analyze --dirs res/synthetic/output/hh_plain
 # Duration over learned h
 incal-experiments smt-lib-benchmark analyze --dirs res/synthetic/output/hh_plain res/synthetic/output/hh_mvn res/synthetic/output/hh_dt res/synthetic/output/hh_dt_mvn --res_path res show -p -t duration -g h selection_strategy learner -o ly "Duration (s)" lx "Number of learned inequalities (h)"
 # Accuracy over learned h
-incal-experiments smt-lib-benchmark analyze --dirs res/synthetic/output/hh_plain res/synthetic/output/hh_mvn res/synthetic/output/hh_dt res/synthetic/output/hh_dt_mvn --res_path res show -p -t accuracy_approx -g h selection_strategy learner -o ly "Duration (s)" lx "Number of learned inequalities (h)"
+incal-experiments smt-lib-benchmark analyze --dirs res/synthetic/output/hh_plain res/synthetic/output/hh_mvn res/synthetic/output/hh_dt res/synthetic/output/hh_dt_mvn --res_path res show -p -t accuracy_approx -g h selection_strategy learner -o ly "Accuracy on test set" lx "Number of learned inequalities (h)"
