@@ -68,6 +68,10 @@ class Properties(object):
         return db.get(name)["generation"]["h"]
 
     @staticmethod
+    def executed(experiment):
+        return 1 if experiment.results.duration is not None else 0
+
+    @staticmethod
     def accuracy_approx(experiment):
         key = "accuracy_approx:{}".format(experiment.imported_from_file)
         if Properties.db.exists(key):
@@ -97,6 +101,7 @@ class Properties(object):
 def register_derived(experiment):
     experiment.register_derived("accuracy_approx", Properties.accuracy_approx)
     experiment.register_derived("original_h", Properties.original_h)
+    experiment.register_derived("executed", Properties.executed)
     return experiment
 
 
