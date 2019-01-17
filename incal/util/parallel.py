@@ -5,13 +5,13 @@ from subprocess import TimeoutExpired
 
 def run_command(args):
     command, time_out = args
-    process = subprocess.Popen(command, shell=True)
+    process = subprocess.Popen(command, shell=False)
     try:
         process.wait(timeout=time_out)
         print("[complete] {}".format(command))
     except TimeoutExpired:
         process.kill()
-        
+        process.wait()
 
 
 def run_commands(commands, processes=None, time_out=None):
