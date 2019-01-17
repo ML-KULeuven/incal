@@ -5,7 +5,7 @@ from subprocess import TimeoutExpired
 
 def run_command(args):
     command, time_out = args
-    process = subprocess.Popen(command, shell=False)
+    process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE)
     try:
         process.wait(timeout=time_out)
         print("[complete] {}".format(command))
