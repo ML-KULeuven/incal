@@ -1,1 +1,21 @@
-incal-experiments smt-lib-benchmark analyze --dirs remote_res/smt_lib_benchmark/qf_lra_results_plain/ remote_res/smt_lib_benchmark/qf_lra_results_m/ remote_res/smt_lib_benchmark/qf_lra_results_n/ remote_res/smt_lib_benchmark/qf_lra_results_v/ remote_res/smt_lib_benchmark/qf_lra_results_mvn/ --res_path remote_res show -p -t duration -g k learner -o ly "Duration (s)" lx "Number of learned clauses (k)" steps_x 3 -w ../incal_mlj/figures/symmetries_benchmark.png
+# Effect of symmetries
+incal-experiments smt-lib-benchmark analyze --dirs remote_res/smt_lib_benchmark/qf_lra_results_plain/ remote_res/smt_lib_benchmark/qf_lra_results_m/ remote_res/smt_lib_benchmark/qf_lra_results_n/ remote_res/smt_lib_benchmark/qf_lra_results_v/ remote_res/smt_lib_benchmark/qf_lra_results_mvn/ remote_res/smt_lib_benchmark/qf_lra_results_h --res_path remote_res show -p -t duration -g k learner -o ly "Duration (s)" lx "Number of learned clauses (k)" steps_x 3 error 0 -w ../incal_mlj/figures/symmetries_benchmark.png
+
+# Counts
+incal-experiments smt-lib-benchmark analyze --dirs remote_res/smt_lib_benchmark/qf_lra_results_plain/ remote_res/smt_lib_benchmark/qf_lra_results_m/ remote_res/smt_lib_benchmark/qf_lra_results_n/ remote_res/smt_lib_benchmark/qf_lra_results_v/ remote_res/smt_lib_benchmark/qf_lra_results_mvn/ remote_res/smt_lib_benchmark/qf_lra_results_h --res_path remote_res show -p -a count -t id -g k learner -o ly "Number of runs" lx "Number of learned clauses (k)" steps_x 3 error 0
+
+# Learned halfspaces
+incal-experiments smt-lib-benchmark analyze --dirs remote_res/smt_lib_benchmark/qf_lra_results_plain/ remote_res/smt_lib_benchmark/qf_lra_results_m/ remote_res/smt_lib_benchmark/qf_lra_results_n/ remote_res/smt_lib_benchmark/qf_lra_results_v/ remote_res/smt_lib_benchmark/qf_lra_results_mvn/ remote_res/smt_lib_benchmark/qf_lra_results_h --res_path remote_res show -p -t h -g k learner -o error 1
+
+# Effect of dt
+incal-experiments smt-lib-benchmark analyze --dirs remote_res/smt_lib_benchmark/qf_lra_results_plain/ remote_res/smt_lib_benchmark/qf_lra_results_dt/ remote_res/smt_lib_benchmark/qf_lra_results_mvn remote_res/smt_lib_benchmark/qf_lra_results_dt_mvn --res_path remote_res show -p -t duration -g k selection_strategy learner -o ly "Duration (s)" lx "Number of learned clauses (k)" steps_x 3 error 0 -w ../incal_mlj/figures/dt_benchmark.png
+
+# --- Exploring H
+# Duration over increasing original h
+incal-experiments smt-lib-benchmark analyze --dirs res/synthetic/output/hh_plain res/synthetic/output/hh_mvn res/synthetic/output/hh_dt res/synthetic/output/hh_dt_mvn --res_path res show -p -t duration -g original_h selection_strategy learner -o ly "Duration (s)" lx "Number of inequalities in ground truth (h)"
+# Learned h over original h
+incal-experiments smt-lib-benchmark analyze --dirs res/synthetic/output/hh_plain res/synthetic/output/hh_mvn res/synthetic/output/hh_dt res/synthetic/output/hh_dt_mvn --res_path res show -p -t h -g original_h selection_strategy learner -o ly "Number of learned hyperplanes (h)" lx "Number of inequalities in ground truth (h)"
+# Duration over learned h
+incal-experiments smt-lib-benchmark analyze --dirs res/synthetic/output/hh_plain res/synthetic/output/hh_mvn res/synthetic/output/hh_dt res/synthetic/output/hh_dt_mvn --res_path res show -p -t duration -g h selection_strategy learner -o ly "Duration (s)" lx "Number of learned inequalities (h)"
+# Accuracy over learned h
+incal-experiments smt-lib-benchmark analyze --dirs res/synthetic/output/hh_plain res/synthetic/output/hh_mvn res/synthetic/output/hh_dt res/synthetic/output/hh_dt_mvn --res_path res show -p -t accuracy_approx -g h selection_strategy learner -o ly "Duration (s)" lx "Number of learned inequalities (h)"

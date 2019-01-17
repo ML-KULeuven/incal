@@ -22,7 +22,7 @@ def rel_ratio(ratio):
     return abs(0.5 - ratio)
 
 
-def learn_synthetic(input_directory, output_directory, runs, sample_size, processes, learn_options: LearnOptions):
+def learn_synthetic(input_directory, output_directory, runs, sample_size, processes, time_out, learn_options: LearnOptions):
     commands = []
 
     db = get_synthetic_db(input_directory)
@@ -52,10 +52,10 @@ def learn_synthetic(input_directory, output_directory, runs, sample_size, proces
             commands.append("incal-track {} --export {} --log {}"
                             .format(detail_learn_options.print_arguments(), export_file, log_file))
 
-    run_commands(commands, processes)
+    run_commands(commands, processes, time_out)
 
 
-def learn_benchmark(runs, sample_size, processes, learn_options: LearnOptions):
+def learn_benchmark(runs, sample_size, processes, time_out, learn_options: LearnOptions):
     # def filter1(entry):
     #     return "real_variables_count" in entry and entry["real_variables_count"] + entry["bool_variables_count"] <= 10
     #
@@ -115,7 +115,7 @@ def learn_benchmark(runs, sample_size, processes, learn_options: LearnOptions):
         commands.append("incal-track {} --export {} --log {}"
                         .format(detail_learn_options.print_arguments(), export_file, log_file))
 
-    run_commands(commands, processes)
+    run_commands(commands, processes, time_out)
 
 
 def get_experiment(res_path=None):
@@ -135,5 +135,6 @@ def track():
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         experiment = get_experiment()
+        experiment.save(experiment.config.export)
         experiment.execute_from_command_line()
         experiment.save(experiment.config.export)

@@ -107,14 +107,23 @@ def get_property(index, experiment, property_name):
     if property_name == "*":
         return "all"
 
+    if property_name.startswith("@"):
+        property_name = property_name[1:]
+        dissolve_object = True
+    else:
+        dissolve_object = False
+
     if property_name in experiment.parameters.options:
-        return experiment.parameters.original_values[property_name]
+        return getattr(experiment.parameters, property_name)\
+            if dissolve_object else experiment.parameters.original_values[property_name]
 
     if property_name in experiment.results.options:
-        return experiment.results.original_values[property_name]
+        return getattr(experiment.results, property_name)\
+            if dissolve_object else experiment.results.original_values[property_name]
 
     if experiment.config and property_name in experiment.config.options:
-        return experiment.config.original_values[property_name]
+        return getattr(experiment.config, property_name)\
+            if dissolve_object else experiment.config.original_values[property_name]
 
     if property_name in experiment.derived:
         return experiment.derived[property_name](experiment)
@@ -248,8 +257,6 @@ def show(
 
         label_x = targets[0].capitalize()
         label_y = targets[1].capitalize()
-        if targets[1] == "scores__mean":
-            scatter.y_lim((0, 1))
         scatter.plot(export_filename,
                      lines=True, log_x=False, log_y=False, label_y=label_y, label_x=label_x, legend_pos="upper center")
 

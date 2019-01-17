@@ -14,7 +14,8 @@ import numpy
 
 
 class ScatterData:
-    colors = ["black", "green", "red"]
+    # colors = ["black", "green", "red"]
+    colors = []
     markers = ["o", "v", "x"]
 
     def __init__(self, title, plot_options):
@@ -76,7 +77,7 @@ class ScatterData:
                 if cache == "format":
                     plot_format = plot_option
                 elif cache == "error":
-                    show_error = (plot_option == 1)
+                    show_error = (int(plot_option) == 1)
                 elif cache == "legend_pos":
                     legend_pos = plot_option
                 elif cache == "lx":

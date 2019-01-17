@@ -314,7 +314,6 @@ def prepare_samples(n, sample_size, reset):
 
 def get_synthetic_db(directory, auto_dump=True):
     db_filename = os.path.join(directory, 'synthetic.db')
-    print(db_filename)
     return pickledb.load(db_filename, auto_dump)
 
 

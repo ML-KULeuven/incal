@@ -1,13 +1,14 @@
 import glob
+import json
 import os
 
 from typing import List
 
 import pickledb
-from pywmi import RejectionEngine, nested_to_smt
+from pywmi import RejectionEngine, nested_to_smt, import_domain
 from pywmi.domain import Density, Domain
 
-from .prepare import select_benchmark_files, benchmark_filter
+from .prepare import select_benchmark_files, benchmark_filter, get_synthetic_db
 from incal.util.options import Experiment
 from incal.util import analyze as show
 
@@ -28,6 +29,11 @@ class Properties(object):
     @staticmethod
     def to_sample_name(filename):
         return filename[filename.find("QF_LRA"):]
+
+    @staticmethod
+    def to_synthetic_name(filename):
+        parts = os.path.basename(filename).split(".")
+        return parts[0]
 
     @staticmethod
     def compute(experiments):
@@ -52,6 +58,16 @@ class Properties(object):
         return Properties.bounds[Properties.to_sample_name(experiment.parameters.original_values["data"])]
 
     @staticmethod
+    def get_db_synthetic(experiment):
+        return get_synthetic_db(os.path.dirname(experiment.parameters.original_values["domain"]))
+
+    @staticmethod
+    def original_h(experiment):
+        db = Properties.get_db_synthetic(experiment)
+        name = Properties.to_synthetic_name(experiment.imported_from_file)
+        return db.get(name)["generation"]["h"]
+
+    @staticmethod
     def accuracy_approx(experiment):
         key = "accuracy_approx:{}".format(experiment.imported_from_file)
         if Properties.db.exists(key):
@@ -59,9 +75,16 @@ class Properties(object):
         else:
             pysmt.environment.push_env()
             pysmt.environment.get_env().enable_infix_notation = True
-            density = Density.import_from(experiment.parameters.original_values["domain"])
-            domain = Domain(density.domain.variables, density.domain.var_types, Properties.get_bound(experiment))
-            true_formula = density.support
+            if os.path.basename(experiment.imported_from_file).startswith("synthetic"):
+                db = Properties.get_db_synthetic(experiment)
+                name = Properties.to_synthetic_name(experiment.imported_from_file)
+                entry = db.get(name)
+                domain = import_domain(json.loads(entry["domain"]))
+                true_formula = nested_to_smt(entry["formula"])
+            else:
+                density = Density.import_from(experiment.parameters.original_values["domain"])
+                domain = Domain(density.domain.variables, density.domain.var_types, Properties.get_bound(experiment))
+                true_formula = density.support
             learned_formula = nested_to_smt(experiment.results.formula)
             engine = RejectionEngine(domain, smt.TRUE(), smt.Real(1.0), 100000)
             accuracy = engine.compute_probability(smt.Iff(true_formula, learned_formula))
@@ -73,6 +96,7 @@ class Properties(object):
 
 def register_derived(experiment):
     experiment.register_derived("accuracy_approx", Properties.accuracy_approx)
+    experiment.register_derived("original_h", Properties.original_h)
     return experiment
 
 
