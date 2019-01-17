@@ -163,7 +163,7 @@ class Experiment(object):
     def register_derived(self, name, callback):
         self.derived[name] = callback
 
-    def execute_from_command_line(self):
+    def import_from_command_line(self):
         import argparse
         parser = argparse.ArgumentParser()
         self.parameters.add_arguments(parser)
@@ -174,10 +174,9 @@ class Experiment(object):
         if self.config:
             self.config.parse_arguments(args)
 
-        result = self.parameters.call(True)
-
-        for o_name in self.results.options:
-            self.results.set_value(o_name, result)
+    def execute_from_command_line(self):
+        self.import_from_command_line()
+        self.execute()
 
     def execute(self):
         result = self.parameters.call(timed=True)

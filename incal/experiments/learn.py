@@ -135,6 +135,7 @@ def track():
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         experiment = get_experiment()
+        experiment.import_from_command_line()
         experiment.save(experiment.config.export)
-        experiment.execute_from_command_line()
+        experiment.execute()
         experiment.save(experiment.config.export)
