@@ -12,10 +12,25 @@ incal-experiments smt-lib-benchmark analyze --dirs remote_res/smt_lib_benchmark/
 
 # --- Exploring H
 # Duration over increasing original h
-incal-experiments smt-lib-benchmark analyze --dirs res/synthetic/output/hh_plain res/synthetic/output/hh_mvn res/synthetic/output/hh_dt res/synthetic/output/hh_dt_mvn --res_path res show -p -t duration -g original_h selection_strategy learner -o ly "Duration (s)" lx "Number of inequalities in ground truth (h)"
+incal-experiments smt-lib-benchmark analyze --dirs res/synthetic/output/hh_plain res/synthetic/output/hh_mvn res/synthetic/output/hh_dt res/synthetic/output/hh_dt_mvn res/synthetic/output/hh_dt_mn --res_path res show -p -t duration -g original_h selection_strategy learner -o ly "Duration (s)" lx "Number of inequalities in ground truth (h)" -w ../incal_mlj/figures/time_over_oh_synthetic.png
 # Learned h over original h
-incal-experiments smt-lib-benchmark analyze --dirs res/synthetic/output/hh_plain res/synthetic/output/hh_mvn res/synthetic/output/hh_dt res/synthetic/output/hh_dt_mvn --res_path res show -p -t h -g original_h selection_strategy learner -o ly "Number of learned hyperplanes (h)" lx "Number of inequalities in ground truth (h)"
+incal-experiments smt-lib-benchmark analyze --dirs res/synthetic/output/hh_plain res/synthetic/output/hh_mvn res/synthetic/output/hh_dt res/synthetic/output/hh_dt_mvn res/synthetic/output/hh_dt_mn --res_path res show -p -t h -g original_h selection_strategy learner -o ly "Number of learned hyperplanes (h)" lx "Number of inequalities in ground truth (h)" -w ../incal_mlj/figures/h_over_oh_synthetic.png
 # Duration over learned h
-incal-experiments smt-lib-benchmark analyze --dirs res/synthetic/output/hh_plain res/synthetic/output/hh_mvn res/synthetic/output/hh_dt res/synthetic/output/hh_dt_mvn --res_path res show -p -t duration -g h selection_strategy learner -o ly "Duration (s)" lx "Number of learned inequalities (h)"
+incal-experiments smt-lib-benchmark analyze --dirs res/synthetic/output/hh_plain res/synthetic/output/hh_mvn res/synthetic/output/hh_dt res/synthetic/output/hh_dt_mvn res/synthetic/output/hh_dt_mn --res_path res show -p -t duration -g h selection_strategy learner -o ly "Duration (s)" lx "Number of learned inequalities (h)" -w ../incal_mlj/figures/time_over_h_synthetic.png
 # Accuracy over learned h
-incal-experiments smt-lib-benchmark analyze --dirs res/synthetic/output/hh_plain res/synthetic/output/hh_mvn res/synthetic/output/hh_dt res/synthetic/output/hh_dt_mvn --res_path res show -p -t accuracy_approx -g h selection_strategy learner -o ly "Accuracy on test set" lx "Number of learned inequalities (h)"
+incal-experiments smt-lib-benchmark analyze --dirs res/synthetic/output/hh_plain res/synthetic/output/hh_mvn res/synthetic/output/hh_dt res/synthetic/output/hh_dt_mvn res/synthetic/output/hh_dt_mn --res_path res show -p -t accuracy_approx -g h selection_strategy learner -o ly "Accuracy on test set" lx "Number of learned inequalities (h)" y_lim "0.5:1" legend_pos "lower center" -w ../incal_mlj/figures/acc_over_h_synthetic.png
+
+# Duration over positive ratio
+incal-experiments smt-lib-benchmark analyze --dirs res/synthetic/output/hh_plain --res_path res show -p -t duration -g pos_rate__batch0.1 h -o ly "Duration (s)" lx "Positive rate" -e "k!=2" "h<5" -w ../incal_mlj/figures/time_over_pos_rate.png
+
+
+# --- Exploring L
+# Timeouts over increasing original l
+incal-experiments smt-lib-benchmark analyze --dirs res/synthetic/output/ll_plain --res_path res show -p -t executed -g original_l learner -o error 0 y_lim 0:1 lx "Number of literals in ground truth" ly "Fraction of experiments completed within time limit" steps_x 5 -w ../incal_mlj/figures/ex_over_l_synthetic.png
+
+
+# --- Exploring K
+# Timeouts over increasing original l
+incal-experiments smt-lib-benchmark analyze --dirs res/synthetic/output/kk_plain res/synthetic/output/kk_dt_mvn --res_path res show -p -t executed -g original_k learner -o error 0 y_lim 0:1 lx "Number of clauses in ground truth" ly "Fraction of experiments completed within time limit" steps_x 5 -w ../incal_mlj/figures/ex_over_k_synthetic.png
+# Learned k over original k
+incal-experiments smt-lib-benchmark analyze --dirs res/synthetic/output/kk_plain res/synthetic/output/kk_dt_mvn --res_path res show -p -t k -g original_k selection_strategy learner -o ly "Number of learned clauses (k)" lx "Number of clauses in ground truth (k)" -e "executed=0" -w ../incal_mlj/figures/k_over_original_k_synthetic.png

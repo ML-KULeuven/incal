@@ -51,7 +51,7 @@ class ScatterData:
         return [next(iterator) for _ in range(len(self.data))]
 
     def render(self, ax, lines=True, log_x=True, log_y=True, label_x=None, label_y=None, legend_pos=None,
-               x_ticks=None):
+               x_ticks=None, y_ticks=None):
 
         plots = []
         colors = self.gen_colors()
@@ -65,6 +65,7 @@ class ScatterData:
         plot_format = "scatter"
         show_error = True
         steps_x = None
+        steps_y = None
 
         cache = None
         for plot_option in self.plot_options or ():
@@ -86,8 +87,18 @@ class ScatterData:
                     label_y = plot_option
                 elif cache == "steps_x":
                     steps_x = int(plot_option)
+                elif cache == "steps_y":
+                    steps_y = int(plot_option)
                 elif cache == "plot_extra":
                     plot_extra = plot_option
+                elif cache == "x_lim":
+                    parts = plot_option.split(":")
+                    limits = (float(parts[0]), float(parts[1]))
+                    self.x_lim(limits)
+                elif cache == "y_lim":
+                    parts = plot_option.split(":")
+                    limits = (float(parts[0]), float(parts[1]))
+                    self.y_lim(limits)
                 cache = None
 
         min_x, max_x, min_y, max_y = numpy.infty, -numpy.infty, numpy.infty, -numpy.infty
@@ -143,13 +154,15 @@ class ScatterData:
         if label_x is not None:
             ax.set_xlabel(label_x)
 
-        # ax.set_ylim((0, 2))
-
         if steps_x is not None:
             x_ticks = numpy.linspace(min_x, max_x, steps_x)
+        if steps_y is not None:
+            y_ticks = numpy.linspace(min_y, max_y, steps_y)
         # x_ticks = [1, 2, 3]
         if x_ticks is not None:
             ax.xaxis.set_ticks(x_ticks)
+        if y_ticks is not None:
+            ax.yaxis.set_ticks(y_ticks)
 
     def plot(self, filename=None, size=None, **kwargs):
         fig = plt.figure()

@@ -4,6 +4,7 @@ import os
 
 from typing import List
 
+import numpy as np
 import pickledb
 from pywmi import RejectionEngine, nested_to_smt, import_domain
 from pywmi.domain import Density, Domain
@@ -62,14 +63,31 @@ class Properties(object):
         return get_synthetic_db(os.path.dirname(experiment.parameters.original_values["domain"]))
 
     @staticmethod
+    def original_k(experiment):
+        db = Properties.get_db_synthetic(experiment)
+        name = Properties.to_synthetic_name(experiment.imported_from_file)
+        return db.get(name)["generation"]["k"]
+
+    @staticmethod
     def original_h(experiment):
         db = Properties.get_db_synthetic(experiment)
         name = Properties.to_synthetic_name(experiment.imported_from_file)
         return db.get(name)["generation"]["h"]
 
     @staticmethod
+    def original_l(experiment):
+        db = Properties.get_db_synthetic(experiment)
+        name = Properties.to_synthetic_name(experiment.imported_from_file)
+        return db.get(name)["generation"]["l"]
+
+    @staticmethod
     def executed(experiment):
         return 1 if experiment.results.duration is not None else 0
+
+    @staticmethod
+    def positive_ratio(experiment):
+        labels = np.load(experiment.parameters.original_values["labels"])
+        return sum(labels) / len(labels)
 
     @staticmethod
     def accuracy_approx(experiment):
@@ -101,7 +119,10 @@ class Properties(object):
 def register_derived(experiment):
     experiment.register_derived("accuracy_approx", Properties.accuracy_approx)
     experiment.register_derived("original_h", Properties.original_h)
+    experiment.register_derived("original_l", Properties.original_l)
+    experiment.register_derived("original_k", Properties.original_k)
     experiment.register_derived("executed", Properties.executed)
+    experiment.register_derived("pos_rate", Properties.positive_ratio)
     return experiment
 
 
