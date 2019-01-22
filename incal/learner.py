@@ -1,12 +1,23 @@
 import numpy as np
 import pysmt.shortcuts as smt
+from typing import Tuple
+
+from pysmt.fnode import FNode
+from pywmi import Domain
+
+
+class NoFormulaFound(RuntimeError):
+    def __init__(self, data, labels):
+        self.data = data
+        self.labels = labels
 
 
 class Learner(object):
     def __init__(self, name):
         self.name = name
 
-    def learn(self, domain, data, labels, border_indices):
+    def learn(self, domain: Domain, data: np.ndarray, labels: np.ndarray, border_indices)\
+            -> Tuple[np.ndarray, np.ndarray, FNode]:
         raise NotImplementedError()
 
     @staticmethod

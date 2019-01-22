@@ -1,9 +1,10 @@
 import time
 
 import pysmt.shortcuts as smt
+from pysmt.exceptions import InternalSolverError
 
 from .observe import observe
-from .learner import Learner
+from .learner import Learner, NoFormulaFound
 
 
 class IncrementalObserver(observe.SpecializedObserver):
@@ -40,17 +41,27 @@ class IncrementalLearner(Learner):
         with smt.Solver() as solver:
             while len(active_indices) > 0:
                 solving_start = time.time()
-                formula = self.learn_partial(solver, domain, data, labels, active_indices)
+                try:
+                    formula = self.learn_partial(solver, domain, data, labels, active_indices)
+                except InternalSolverError:
+                    raise NoFormulaFound(data, labels)
+                except Exception as e:
+                    if "Z3Exception" in str(type(e)):
+                        raise NoFormulaFound(data, labels)
+                    else:
+                        raise e
+
                 solving_time = time.time() - solving_start
 
                 selection_start = time.time()
-                new_active_indices = list(self.selection_strategy.select_active(domain, data, labels, formula, all_active_indices))
-                active_indices = new_active_indices
+                data, labels, new_active_indices =\
+                    self.selection_strategy.select_active(domain, data, labels, formula, all_active_indices)
+                active_indices = list(new_active_indices)
                 all_active_indices += active_indices
                 selection_time = time.time() - selection_start
                 self.observer.observe("iteration", formula, active_indices, solving_time, selection_time)
 
-        return formula
+        return data, labels, formula
 
     def learn_partial(self, solver, domain, data, labels, new_active_indices):
         raise NotImplementedError()
