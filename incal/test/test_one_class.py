@@ -1,4 +1,4 @@
-from incal.observe.inc_logging import LoggingObserver
+from pywmi.smt_print import pretty_print
 
 from incal.learn import LearnOptions
 from pywmi import evaluate
@@ -13,6 +13,8 @@ from incal.k_cnf_smt_learner import KCnfSmtLearner
 
 from incal.parameter_free_learner import learn_bottom_up
 
+# from incal.observe.inc_logging import LoggingObserver
+
 
 def main():
     domain, formula, name = checker_problem()
@@ -26,10 +28,12 @@ def main():
         strategy = OneClassStrategy(RandomViolationsStrategy(1), thresholds)
         learner = KCnfSmtLearner(_k, _h, strategy, "mvn")
         initial_indices = LearnOptions.initial_random(20)(list(range(len(data))))
-        learner.add_observer(LoggingObserver(None, _k, _h, None, True))
+        # learner.add_observer(LoggingObserver(None, _k, _h, None, True))
         return learner.learn(domain, _data, _labels, initial_indices)
 
-    return learn_bottom_up(data, labels, learn_inc, 1, 1, 1, 1, None, None)
+    (new_data, new_labels, formula), k, h = learn_bottom_up(data, labels, learn_inc, 1, 1, 1, 1, None, None)
+    print("Learned CNF(k={}, h={}) formula {}".format(k, h, pretty_print(formula)))
+    print("Data-set grew from {} to {} entries".format(len(labels), len(new_labels)))
 
 
 if __name__ == "__main__":

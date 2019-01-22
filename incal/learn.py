@@ -122,4 +122,6 @@ def learn(
             learner.add_observer(LoggingObserver(log, _k, _h, None, False, selection_strategy))
         return learner.learn(domain, _data, _labels, initial_indices)
 
-    return learn_bottom_up(data, labels, learn_inc, weight_k, weight_h, initial_k, initial_h, None, None)
+    ((_d, _l, formula), k, h) =\
+        learn_bottom_up(data, labels, learn_inc, weight_k, weight_h, initial_k, initial_h, None, None)
+    return formula, k, h
