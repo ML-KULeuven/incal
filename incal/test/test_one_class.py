@@ -14,6 +14,7 @@ from incal.k_cnf_smt_learner import KCnfSmtLearner
 from incal.parameter_free_learner import learn_bottom_up
 
 # from incal.observe.inc_logging import LoggingObserver
+from incal.observe.plotting import PlottingObserver
 
 
 def main():
@@ -25,10 +26,12 @@ def main():
     labels = labels[labels == 1]
 
     def learn_inc(_data, _labels, _i, _k, _h):
-        strategy = OneClassStrategy(RandomViolationsStrategy(1), thresholds)
+        strategy = OneClassStrategy(RandomViolationsStrategy(10), thresholds)
         learner = KCnfSmtLearner(_k, _h, strategy, "mvn")
-        initial_indices = LearnOptions.initial_random(20)(list(range(len(data))))
+        initial_indices = LearnOptions.initial_random(20)(list(range(len(_data))))
         # learner.add_observer(LoggingObserver(None, _k, _h, None, True))
+        learner.add_observer(PlottingObserver(domain, "test_output/checker", "run_{}_{}_{}".format(_i, _k, _h),
+                                              domain.real_vars[0], domain.real_vars[1], None, False))
         return learner.learn(domain, _data, _labels, initial_indices)
 
     (new_data, new_labels, formula), k, h = learn_bottom_up(data, labels, learn_inc, 1, 1, 1, 1, None, None)

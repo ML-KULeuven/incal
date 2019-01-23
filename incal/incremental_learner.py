@@ -8,10 +8,10 @@ from .learner import Learner, NoFormulaFound
 
 
 class IncrementalObserver(observe.SpecializedObserver):
-    def observe_initial(self, initial_indices):
+    def observe_initial(self, data, labels, initial_indices):
         raise NotImplementedError()
 
-    def observe_iteration(self, theory, new_active_indices, solving_time, selection_time):
+    def observe_iteration(self, data, labels, formula, new_active_indices, solving_time, selection_time):
         raise NotImplementedError()
 
 
@@ -34,7 +34,7 @@ class IncrementalLearner(Learner):
         active_indices = list(range(len(data))) if initial_indices is None else initial_indices
         all_active_indices = active_indices
 
-        self.observer.observe("initial", active_indices)
+        self.observer.observe("initial", data, labels, active_indices)
 
         formula = None
 
@@ -59,7 +59,7 @@ class IncrementalLearner(Learner):
                 active_indices = list(new_active_indices)
                 all_active_indices += active_indices
                 selection_time = time.time() - selection_start
-                self.observer.observe("iteration", formula, active_indices, solving_time, selection_time)
+                self.observer.observe("iteration", data, labels, formula, active_indices, solving_time, selection_time)
 
         return data, labels, formula
 

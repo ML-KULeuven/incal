@@ -116,7 +116,7 @@ def learn(
 
     def learn_inc(_data, _labels, _i, _k, _h):
         learner = learner_factory(_k, _h, selection_strategy)
-        initial_indices = initial_strategy(list(range(len(data))))
+        initial_indices = initial_strategy(list(range(len(_data))))
         # log_file = os.path.join(log_dir, "{}_{}_{}.txt".format(problem_name, _k, _h))
         if log is not None:
             learner.add_observer(LoggingObserver(log, _k, _h, None, False, selection_strategy))

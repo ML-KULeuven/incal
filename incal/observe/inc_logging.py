@@ -28,16 +28,16 @@ class LoggingObserver(IncrementalObserver):
             with open(self.filename, "a") as f:
                 print(json.dumps(flat), file=f)
 
-    def observe_initial(self, initial_indices):
+    def observe_initial(self, data, labels, initial_indices):
         flat = {"type": "initial", "indices": initial_indices, "k": self.k, "h": self.h}
         if self.verbose:
             print("Starting with {} examples".format(len(initial_indices)))
         self.log(flat)
 
-    def observe_iteration(self, theory, new_active_indices, solving_time, selection_time):
+    def observe_iteration(self, data, labels, formula, new_active_indices, solving_time, selection_time):
         flat = {
             "type": "update",
-            "theory": smt_to_nested(theory),
+            "theory": smt_to_nested(formula),
             "indices": [int(v) for v in new_active_indices],
             "solving_time": solving_time,
             "selection_time": selection_time,
@@ -49,7 +49,7 @@ class LoggingObserver(IncrementalObserver):
 
         if self.verbose:
             print("Found model after {:.2f}s".format(solving_time))
-            print(pretty_print(theory))
+            print(pretty_print(formula))
             if self.violation_counter is not None:
                 violation_count = len(self.violation_counter.last_violations)
                 selected_count = len(new_active_indices)
