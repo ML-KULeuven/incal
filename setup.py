@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='incal',
-    version='0.0.1',
+    version='0.1.0',
     description='Learning SMT(LRA) formulas',
     url='https://github.com/smtlearning/incal',
     author='Samuel Kolb',

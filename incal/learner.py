@@ -43,7 +43,7 @@ class Learner(object):
 
     @staticmethod
     def fit_hyperplane(domain, examples):
-        matrix = np.matrix([[example[v] for v in domain.real_vars] for example in examples])
+        matrix = examples[:, [domain.is_real(v) for v in domain.variables]]
         k = np.ones((len(examples), 1))
         a = np.matrix.dot(np.linalg.inv(matrix), k)
         return a, 1
