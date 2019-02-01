@@ -29,6 +29,3 @@ def test_example1():
 
     print(evaluate(domain, formula, instance))
     print(evaluate(domain, learned, instance))
-
-
-test_example1()

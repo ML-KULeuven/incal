@@ -1,6 +1,6 @@
 import numpy as np
 
-from incal.generate.generator import generate_half_space_sample
+from incal.generator import generate_half_space_sample
 from incal.learner import Learner
 from pysmt.typing import REAL, BOOL
 from pywmi import Domain

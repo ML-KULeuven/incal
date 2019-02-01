@@ -18,6 +18,6 @@ class TestPolytope(TestCase):
         x, y = smt.Symbol("x", REAL), smt.Symbol("y", REAL)
         formula = (x + y <= 0.5)
         RegionBuilder(domain).walk_smt(formula).plot()
-        plt.show()
+        # plt.show()
 
 

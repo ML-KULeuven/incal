@@ -95,19 +95,23 @@ def negative_samples_example(background_knowledge):
                                               domain.real_vars[0], domain.real_vars[1], None, False))
         return learner.learn(domain, _data, _labels, initial_indices)
 
-    (new_data, new_labels, formula), k, h = learn_bottom_up(data, labels, learn_inc, 1, 1, 1, 1, None, None)
+    (new_data, new_labels, learned_formula), k, h = learn_bottom_up(data, labels, learn_inc, 1, 1, 1, 1, None, None)
     if background_knowledge:
-        formula = formula & background_knowledge
+        learned_formula = learned_formula & background_knowledge
 
     duration = time.time() - start_time
 
-    print("{}".format(smt_to_nested(formula)))
-    print("Learned CNF(k={}, h={}) formula {}".format(k, h, pretty_print(formula)))
+    print("{}".format(smt_to_nested(learned_formula)))
+    print("Learned CNF(k={}, h={}) formula {}".format(k, h, pretty_print(learned_formula)))
     print("Data-set grew from {} to {} entries".format(len(labels), len(new_labels)))
     print("Learning took {:.2f}s".format(duration))
 
+    test_data, labels = OneClassStrategy.add_negatives(domain, data, labels, thresholds, 1000, background_knowledge)
+    assert all(evaluate(domain, learned_formula, test_data) == labels)
 
-if __name__ == "__main__":
-    random.seed(888)
-    np.random.seed(888)
-    negative_samples_example(True)
+
+def test_negative_samples():
+    for label in (True, False):
+        random.seed(888)
+        np.random.seed(888)
+        negative_samples_example(label)
