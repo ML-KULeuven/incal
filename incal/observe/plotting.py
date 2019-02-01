@@ -1,7 +1,7 @@
 import time
 
 import os
-from pywmi import evaluate
+from pywmi import evaluate, smt_to_nested
 
 from incal.incremental_learner import IncrementalObserver
 

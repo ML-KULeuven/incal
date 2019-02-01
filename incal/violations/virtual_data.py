@@ -4,14 +4,16 @@ import numpy as np
 import scipy
 from pysmt.exceptions import InternalSolverError
 from pysmt.environment import Environment
+from pysmt.shortcuts import TRUE
 from pysmt.typing import REAL, BOOL
-from pywmi import Domain
+from pywmi import Domain, evaluate
 from pywmi.sample import uniform
-from typing import Callable, List, Union, Dict, Any, Tuple
-
-from scipy.spatial.distance import cdist
+from typing import Dict, Any, Tuple, TYPE_CHECKING
 
 from .core import SelectionStrategy
+
+if TYPE_CHECKING:
+    from pysmt.fnode import FNode
 
 
 class OneClassStrategy(SelectionStrategy):
@@ -98,16 +100,18 @@ class OneClassStrategy(SelectionStrategy):
             return data, labels, [len(labels) - 1]
 
     @staticmethod
-    def add_negatives(domain, data, labels, thresholds, sample_count, distance_measure=None):
-        # type: (Domain, np.ndarray, np.ndarray, Dict, int, Any) -> Tuple[np.ndarray, np.ndarray]
+    def add_negatives(domain, data, labels, thresholds, sample_count, background_knowledge=None, distance_measure=None):
+        # type: (Domain, np.ndarray, np.ndarray, Dict, int, FNode, Any) -> Tuple[np.ndarray, np.ndarray]
 
         new_data = uniform(domain, sample_count)
-        supported_indices = np.ones(sample_count)
+        background_knowledge = background_knowledge or TRUE()
+        supported_indices = evaluate(domain, background_knowledge, new_data)
         boolean_indices = [i for i, v in enumerate(domain.variables) if domain.is_bool(v)]
         real_indices = [i for i, v in enumerate(domain.variables) if domain.is_real(v)]
         for j in range(new_data.shape[0]):
             valid_negative = True
             for i in range(data.shape[0]):
+                # noinspection PyTypeChecker
                 if labels[i] and all(data[i, boolean_indices] == new_data[j, boolean_indices]):
                     in_range = True
                     for ri, v in zip(real_indices, domain.real_vars):
@@ -117,7 +121,7 @@ class OneClassStrategy(SelectionStrategy):
                     valid_negative = valid_negative and (not in_range)
                     if not valid_negative:
                         break
-            supported_indices[j] = valid_negative
+            supported_indices[j] = supported_indices[j] and valid_negative
         new_data = new_data[supported_indices == 1, :]
         return np.concatenate([data, new_data], axis=0), np.concatenate([labels, np.zeros(new_data.shape[0])])
 

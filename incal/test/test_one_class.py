@@ -1,10 +1,12 @@
 import os
+import random
 import time
+import numpy as np
 
 from pywmi.smt_print import pretty_print
 
 from incal.learn import LearnOptions
-from pywmi import evaluate, Domain
+from pywmi import evaluate, Domain, smt_to_nested
 from pywmi.sample import uniform
 
 from incal.experiments.examples import simple_checker_problem, checker_problem
@@ -66,10 +68,11 @@ def background_knowledge_example():
     print("Data-set grew from {} to {} entries".format(len(labels), len(new_labels)))
 
 
-def negative_samples_example():
+def negative_samples_example(background_knowledge):
     domain = Domain.make(["a", "b"], ["x", "y"], [(0, 1), (0, 1)])
     a, b, x, y = domain.get_symbols(domain.variables)
     formula = (a | b) & (~a | ~b) & (x <= y) & domain.get_bounds()
+    background_knowledge = (a | b) & (~a | ~b) if background_knowledge else None
     thresholds = {"x": 0.1, "y": 0.2}
     data = uniform(domain, 10000)
     labels = evaluate(domain, formula, data)
@@ -77,13 +80,15 @@ def negative_samples_example():
     labels = labels[labels == 1]
     original_sample_count = len(labels)
 
-    data, labels = OneClassStrategy.add_negatives(domain, data, labels, thresholds, 100)
+    start_time = time.time()
+
+    data, labels = OneClassStrategy.add_negatives(domain, data, labels, thresholds, 100, background_knowledge)
     print("Created {} negative examples".format(len(labels) - original_sample_count))
 
-    directory = "test_output{}bg_sampled{}{}".format(os.path.sep, os.path.sep, time.strftime("%Y-%m-%d %Hh.%Mm.%Ss"))
+    directory = "test_output{}bg_sampled{}{}".format(os.path.sep, os.path.sep, time.strftime("%Y-%m-%d %Hh%Mm%Ss"))
 
     def learn_inc(_data, _labels, _i, _k, _h):
-        strategy = OneClassStrategy(RandomViolationsStrategy(10), thresholds)
+        strategy = OneClassStrategy(RandomViolationsStrategy(10), thresholds, background_knowledge=background_knowledge)
         learner = KCnfSmtLearner(_k, _h, strategy, "mvn")
         initial_indices = LearnOptions.initial_random(20)(list(range(len(_data))))
         learner.add_observer(PlottingObserver(domain, directory, "run_{}_{}_{}".format(_i, _k, _h),
@@ -91,9 +96,18 @@ def negative_samples_example():
         return learner.learn(domain, _data, _labels, initial_indices)
 
     (new_data, new_labels, formula), k, h = learn_bottom_up(data, labels, learn_inc, 1, 1, 1, 1, None, None)
+    if background_knowledge:
+        formula = formula & background_knowledge
+
+    duration = time.time() - start_time
+
+    print("{}".format(smt_to_nested(formula)))
     print("Learned CNF(k={}, h={}) formula {}".format(k, h, pretty_print(formula)))
     print("Data-set grew from {} to {} entries".format(len(labels), len(new_labels)))
+    print("Learning took {:.2f}s".format(duration))
 
 
 if __name__ == "__main__":
-    negative_samples_example()
+    random.seed(888)
+    np.random.seed(888)
+    negative_samples_example(True)
