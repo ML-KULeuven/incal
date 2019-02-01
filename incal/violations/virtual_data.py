@@ -1,9 +1,15 @@
 from __future__ import print_function
 
 import numpy as np
+import scipy
 from pysmt.exceptions import InternalSolverError
 from pysmt.environment import Environment
 from pysmt.typing import REAL, BOOL
+from pywmi import Domain
+from pywmi.sample import uniform
+from typing import Callable, List, Union, Dict, Any, Tuple
+
+from scipy.spatial.distance import cdist
 
 from .core import SelectionStrategy
 
@@ -90,6 +96,31 @@ class OneClassStrategy(SelectionStrategy):
             data = np.vstack([data, example])
             labels = np.append(labels, np.array([0 if self.class_label else 1]))
             return data, labels, [len(labels) - 1]
+
+    @staticmethod
+    def add_negatives(domain, data, labels, thresholds, sample_count, distance_measure=None):
+        # type: (Domain, np.ndarray, np.ndarray, Dict, int, Any) -> Tuple[np.ndarray, np.ndarray]
+
+        new_data = uniform(domain, sample_count)
+        supported_indices = np.ones(sample_count)
+        boolean_indices = [i for i, v in enumerate(domain.variables) if domain.is_bool(v)]
+        real_indices = [i for i, v in enumerate(domain.variables) if domain.is_real(v)]
+        for j in range(new_data.shape[0]):
+            valid_negative = True
+            for i in range(data.shape[0]):
+                if labels[i] and all(data[i, boolean_indices] == new_data[j, boolean_indices]):
+                    in_range = True
+                    for ri, v in zip(real_indices, domain.real_vars):
+                        if abs(data[i, ri] - new_data[j, ri]) > thresholds[v]:
+                            in_range = False
+                            break
+                    valid_negative = valid_negative and (not in_range)
+                    if not valid_negative:
+                        break
+            supported_indices[j] = valid_negative
+        new_data = new_data[supported_indices == 1, :]
+        return np.concatenate([data, new_data], axis=0), np.concatenate([labels, np.zeros(new_data.shape[0])])
+
 
 """
 There is a point e, such that for every example e': d(e, e') > t

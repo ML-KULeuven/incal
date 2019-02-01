@@ -1,3 +1,6 @@
+import os
+import time
+
 from pywmi.smt_print import pretty_print
 
 from incal.learn import LearnOptions
@@ -39,7 +42,7 @@ def main():
     print("Data-set grew from {} to {} entries".format(len(labels), len(new_labels)))
 
 
-def test_background_knowledge():
+def background_knowledge_example():
     domain = Domain.make(["a", "b"], ["x", "y"], [(0, 1), (0, 1)])
     a, b, x, y = domain.get_symbols(domain.variables)
     formula = (a | b) & (~a | ~b) & (x >= 0) & (x <= y) & (y <= 1)
@@ -63,5 +66,34 @@ def test_background_knowledge():
     print("Data-set grew from {} to {} entries".format(len(labels), len(new_labels)))
 
 
+def negative_samples_example():
+    domain = Domain.make(["a", "b"], ["x", "y"], [(0, 1), (0, 1)])
+    a, b, x, y = domain.get_symbols(domain.variables)
+    formula = (a | b) & (~a | ~b) & (x <= y) & domain.get_bounds()
+    thresholds = {"x": 0.1, "y": 0.2}
+    data = uniform(domain, 10000)
+    labels = evaluate(domain, formula, data)
+    data = data[labels == 1]
+    labels = labels[labels == 1]
+    original_sample_count = len(labels)
+
+    data, labels = OneClassStrategy.add_negatives(domain, data, labels, thresholds, 100)
+    print("Created {} negative examples".format(len(labels) - original_sample_count))
+
+    directory = "test_output{}bg_sampled{}{}".format(os.path.sep, os.path.sep, time.strftime("%Y-%m-%d %Hh.%Mm.%Ss"))
+
+    def learn_inc(_data, _labels, _i, _k, _h):
+        strategy = OneClassStrategy(RandomViolationsStrategy(10), thresholds)
+        learner = KCnfSmtLearner(_k, _h, strategy, "mvn")
+        initial_indices = LearnOptions.initial_random(20)(list(range(len(_data))))
+        learner.add_observer(PlottingObserver(domain, directory, "run_{}_{}_{}".format(_i, _k, _h),
+                                              domain.real_vars[0], domain.real_vars[1], None, False))
+        return learner.learn(domain, _data, _labels, initial_indices)
+
+    (new_data, new_labels, formula), k, h = learn_bottom_up(data, labels, learn_inc, 1, 1, 1, 1, None, None)
+    print("Learned CNF(k={}, h={}) formula {}".format(k, h, pretty_print(formula)))
+    print("Data-set grew from {} to {} entries".format(len(labels), len(new_labels)))
+
+
 if __name__ == "__main__":
-    test_background_knowledge()
+    negative_samples_example()
