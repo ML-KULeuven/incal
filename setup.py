@@ -1,13 +1,13 @@
-# To upload:
-# pip install --upgrade twine wheel setuptools
-# python setup.py upload
-
 import os
 import shutil
 import sys
 
 from setuptools import setup, find_packages, Command
 from os import path
+
+# To upload:
+# pip install --upgrade twine wheel setuptools
+# python setup.py upload
 
 NAME = 'incal'
 DESCRIPTION = 'Learning SMT(LRA) formulas'
