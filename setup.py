@@ -1,5 +1,5 @@
 # To upload:
-# pip install twine
+# pip install --upgrade twine wheel setuptools
 # python setup.py upload
 
 import os
