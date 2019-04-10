@@ -63,7 +63,8 @@ class MaxViolationsStrategy(AllViolationsStrategy):
         self.weights = weights
 
     def select_active(self, domain, data, labels, formula, active_indices) -> Tuple[np.ndarray, np.ndarray, List[int]]:
-        all_violations = list(AllViolationsStrategy.select_active(self, domain, data, labels, formula, active_indices))
+        data, labels, all_violations = AllViolationsStrategy.select_active(self, domain, data, labels, formula, active_indices)
+        all_violations = list(all_violations)
         self.last_violations = all_violations
         sample_size = min(self.sample_size, len(all_violations))
         weighted_violations = zip(all_violations, [self.weights[i] for i in all_violations])

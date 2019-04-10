@@ -115,7 +115,8 @@ class OneClassStrategy(SelectionStrategy):
                 if labels[i] and all(data[i, boolean_indices] == new_data[j, boolean_indices]):
                     in_range = True
                     for ri, v in zip(real_indices, domain.real_vars):
-                        if abs(data[i, ri] - new_data[j, ri]) > thresholds[v]:
+                        t = thresholds[v] if isinstance(thresholds, dict) else thresholds[i, ri]
+                        if abs(data[i, ri] - new_data[j, ri]) > t:
                             in_range = False
                             break
                     valid_negative = valid_negative and (not in_range)

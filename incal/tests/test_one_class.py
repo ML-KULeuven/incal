@@ -6,7 +6,7 @@ import numpy as np
 from pywmi.smt_print import pretty_print
 
 from incal.learn import LearnOptions
-from pywmi import evaluate, Domain, smt_to_nested
+from pywmi import evaluate, Domain, smt_to_nested, plot, RejectionEngine
 from pywmi.sample import uniform
 
 from incal.experiments.examples import simple_checker_problem, checker_problem
@@ -115,3 +115,49 @@ def test_negative_samples():
         random.seed(888)
         np.random.seed(888)
         negative_samples_example(label)
+
+
+def test_adaptive_threshold():
+    random.seed(888)
+    np.random.seed(888)
+
+    domain = Domain.make([], ["x", "y"], [(0, 1), (0, 1)])
+    x, y = domain.get_symbols(domain.variables)
+    formula = (x <= y) & (x <= 0.5) & (y <= 0.5) & domain.get_bounds()
+    thresholds = {"x": 0.1, "y": 0.1}
+    data, _ = RejectionEngine(domain, formula, x * x, 100000).get_samples(50)
+    k = 4
+    nearest_neighbors = []
+    for i in range(len(data)):
+        nearest_neighbors.append([])
+        for j in range(len(data)):
+            if i != j:
+                distance = 1 if any(data[i, b] != data[j, b] for b, v in enumerate(domain.variables)
+                                    if domain.is_bool(v))\
+                    else max(abs(data[i, r] - data[j, r]) / (domain.var_domains[v][1] - domain.var_domains[v][0]) for r, v in enumerate(domain.variables) if domain.is_real(v))
+                if len(nearest_neighbors[i]) < k:
+                    nearest_neighbors[i].append((j, distance))
+                else:
+                    index_of_furthest = None
+                    for fi, f in enumerate(nearest_neighbors[i]):
+                        if index_of_furthest is None or f[1] > nearest_neighbors[i][index_of_furthest][1]:
+                            index_of_furthest = fi
+                    if distance < nearest_neighbors[i][index_of_furthest][1]:
+                        nearest_neighbors[i][index_of_furthest] = (j, distance)
+    print(nearest_neighbors)
+    t = [[sum(n[1] for n in nearest_neighbors[i]) / len(nearest_neighbors[i]) * (domain.var_domains[v][1] - domain.var_domains[v][0]) for v in domain.real_vars]
+         for i in range(len(nearest_neighbors))]
+    t = np.array(t)
+    print(t)
+    print(data)
+    # data = uniform(domain, 400)
+    labels = evaluate(domain, formula, data)
+    data = data[labels == 1]
+    labels = labels[labels == 1]
+    data, labels = OneClassStrategy.add_negatives(domain, data, labels, t, 1000)
+
+    directory = "test_output{}adaptive{}{}".format(os.path.sep, os.path.sep, time.strftime("%Y-%m-%d %Hh%Mm%Ss"))
+    os.makedirs(directory)
+
+    name = os.path.join(directory, "combined.png")
+    plot.plot_combined("x", "y", domain, formula, (data, labels), None, name, set(), set())

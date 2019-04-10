@@ -1,6 +1,6 @@
 import numpy as np
 
-from smtlearn.examples import ice_cream_problem
+from incal.experiments.examples import ice_cream_problem
 from pywmi import Domain, evaluate
 
 
